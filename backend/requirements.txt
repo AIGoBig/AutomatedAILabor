@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+langchain
+langgraph
+python-dotenv
+pydantic
+requests
+langchain-community
+duckduckgo-search
+langchain-openai
+langchain-anthropic
