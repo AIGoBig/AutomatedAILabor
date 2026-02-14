@@ -9,3 +9,5 @@ langchain-community
 duckduckgo-search
 langchain-openai
 langchain-anthropic
+passlib[bcrypt]
+python-jose[cryptography]

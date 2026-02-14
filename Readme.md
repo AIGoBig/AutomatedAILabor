@@ -48,6 +48,28 @@
 - [ ] **Phase 3: Scale** - Add more "Worker Types" (Coding, Design), optimize agent costs.
 
 ---
+## 6. 常见问题排查 (Troubleshooting)
+
+### 1. 502 Bad Gateway / Connection Error
+如果出现 `openai.InternalServerError: Error code: 502`，通常是因为终端的全局代理（如 VPN, Conda 代理）拦截了本地流量。
+- **解决方法**: 在 `.env` 文件中确保包含 `NO_PROXY=localhost,127.0.0.1`。
+- **手动修复**: 在终端运行 `export NO_PROXY=localhost,127.0.0.1`。
+
+### 2. Architecture Mismatch (arm64 vs x86_64)
+如果遇到 `ImportError: ... incompatible architecture`，说明你的 Python 解释器与安装的二进制库不匹配。
+- **解决方法**: 始终使用项目自带的虚拟环境运行脚本：
+  ```bash
+  cd backend
+  ./venv/bin/python3 main.py
+  ```
+
+### 3. Failed to Fetch (Frontend)
+如果前端报错 `Failed to fetch`，请检查：
+- 后端是否已启动 (`localhost:8000`)。
+- `frontend/.env.local` 中的 `NEXT_PUBLIC_API_URL` 是否设置为 `http://localhost:8000`。
+- 浏览器控制台是否有 CORS 相关报错。
+
+---
 *Initiated by the Automated AI Labor Team.*
 
 

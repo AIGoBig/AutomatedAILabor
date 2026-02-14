@@ -1,9 +1,18 @@
-from typing import TypedDict, List, Annotated
+from __future__ import annotations
+from typing import TypedDict, Annotated
 import operator
 
 class AgentState(TypedDict):
     input: str
-    search_results: Annotated[List[str], operator.add]
+    search_results: Annotated[list[str], operator.add]
     report: str
     revision_number: int
     max_revisions: int
+    logs: list[str]
+    model: str
+    task_type: str # 'research' or 'code'
+    code_blocks: list[dict[str, str]] # [{'filename': 'main.py', 'code': '...', 'language': 'python'}]
+    file_structure: list[str]
+    input_tokens: int
+    output_tokens: int
+    cost: float
