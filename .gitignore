@@ -6,6 +6,9 @@ venv/
 .env
 *.db
 backend.log
+*.log
+nohup.out
+.DS_Store
 
 # Frontend
 node_modules/

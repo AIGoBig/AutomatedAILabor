@@ -36,6 +36,10 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok", "version": "1.0.0-v2-dev"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -164,7 +168,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = get_current_user_optional(token, db)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_410_GONE,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -241,6 +245,36 @@ def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         for job in jobs
     ]
     
+@app.post("/api/jobs/{job_id}/retry")
+def retry_job(job_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(Job).filter(Job.id == job_id, Job.owner_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Reset job for retry
+    job.status = "queued"
+    job.result = None
+    job.input_tokens = None
+    job.output_tokens = None
+    job.cost = None
+    db.commit()
+    
+    background_tasks.add_task(process_job, job.id, job.goal, job.model, db)
+    return {"status": "success", "message": "Job retried"}
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(Job).filter(Job.id == job_id, Job.owner_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if job.status not in ["queued", "processing"]:
+        raise HTTPException(status_code=400, detail="Only queued or processing jobs can be cancelled")
+    
+    job.status = "cancelled"
+    db.commit()
+    return {"status": "success", "message": "Job cancelled"}
+
 @app.get("/api/users/me")
 def read_users_me(current_user: User = Depends(get_current_user)):
     return {"id": current_user.id, "email": current_user.email}
@@ -330,6 +364,36 @@ def get_usage_stats(db: Session = Depends(get_db)):
         except:
             continue
     
+    # Trend Data (Last 7 Days)
+    from datetime import datetime, timedelta
+    today = datetime.utcnow().date()
+    trends = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        day_str = day.strftime("%m-%d")
+        
+        day_start = datetime.combine(day, datetime.min.time())
+        day_end = datetime.combine(day, datetime.max.time())
+        
+        day_metrics = db.query(Job.input_tokens, Job.output_tokens).filter(
+            Job.created_at >= day_start,
+            Job.created_at <= day_end
+        ).all()
+        
+        day_in = 0
+        day_out = 0
+        for jin, jout in day_metrics:
+            try:
+                if jin: day_in += int(jin)
+                if jout: day_out += int(jout)
+            except: continue
+        
+        trends.append({
+            "date": day_str,
+            "input": day_in,
+            "output": day_out
+        })
+    
     return {
         "total_missions": total_jobs,
         "status_distribution": status_map,
@@ -339,5 +403,5 @@ def get_usage_stats(db: Session = Depends(get_db)):
             "total_output_tokens": total_out,
             "total_cost": round(total_cost, 4)
         },
-        "recent_trends": []
+        "recent_trends": trends
     }

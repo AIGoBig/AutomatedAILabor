@@ -43,9 +43,24 @@
 3.  **Viral Loop:** 分享生成的报告（带水印/链接）以解锁更多配额或折扣。
 
 ## 5. Roadmap
-- [ ] **Phase 1: Foundation (Now)** - Define architecture, set up repo, build basic "Research Agent".
-- [ ] **Phase 2: MVP Launch** - Web interface, Stripe pre-auth integration, first public release.
-- [ ] **Phase 3: Scale** - Add more "Worker Types" (Coding, Design), optimize agent costs.
+- [x] **Phase 1: Foundation** - Define architecture, set up repo, build basic "Research Agent".
+- [x] **Phase 2: MVP Launch (v1.1)** - Premium Web interface, Results-as-a-Service dashboard.
+- [ ] **Phase 3: Intelligence & Effects** - Optimize model interaction, add more agent workers, streaming updates.
+
+## 6. Changelog
+
+### v1.1.0 (2025-02-15) - "Aesthetic & UX Polish"
+- **极客美学 (Geek Aesthetics):** 
+  - 引入 Apple 风格的流动 Mesh Gradient 背景。
+  - 全站深度适配 Glassmorphism（毛玻璃）视觉效果。
+  - 优化全局色彩对比度与可读性。
+- **性能与体验 (Performance & UX):**
+  - **智能轮询:** 详情页任务结束后自动停止 API 请求，节省资源。
+  - **移动端适配:** 增加响应式侧边栏（Hamburger Menu）。
+  - **交互增强:** 增加任务重试、取消功能。
+  - **可视化:** 统计页集成 7 天 Token 消耗趋势图。
+- **架构:**
+  - 统一前端 API 调用层，增加健壮的错误处理。
 
 ---
 ## 6. 常见问题排查 (Troubleshooting)
