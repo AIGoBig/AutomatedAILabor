@@ -2,11 +2,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 
-export interface StreamEvent {
-    type: 'phase' | 'token' | 'log' | 'status' | 'end' | 'error';
-    data: any;
-}
-
 export interface AgentStreamState {
     phase: string;
     phaseLabel: string;
@@ -32,7 +27,6 @@ export function useAgentStream() {
     const abortRef = useRef<AbortController | null>(null);
 
     const startStream = useCallback(async (jobId: string, token?: string | null) => {
-        // Reset state
         setState({ ...initialState, status: 'connecting' });
 
         const abortController = new AbortController();
@@ -64,65 +58,79 @@ export function useAgentStream() {
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
-                for (const line of lines) {
-                    if (line.startsWith('event:')) {
-                        const eventType = line.slice(6).trim();
-                        continue;
+                // SSE format: "event: <type>\ndata: <payload>\n\n"
+                // Split by double newline to get complete SSE messages
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || ''; // Keep the incomplete last chunk
+
+                for (const msg of messages) {
+                    const lines = msg.split('\n');
+                    let eventType = '';
+                    let dataStr = '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('event:')) {
+                            eventType = line.slice(6).trim();
+                        } else if (line.startsWith('data:')) {
+                            dataStr = line.slice(5).trim();
+                        }
+                        // Skip ping/comment lines starting with ':'
                     }
 
-                    if (line.startsWith('data:')) {
-                        const rawData = line.slice(5).trim();
+                    if (!dataStr) continue;
 
-                        // We need to figure out the event type from the previous 'event:' line
-                        // SSE format: event: <type>\ndata: <data>\n\n
-                        // The sse-starlette library sends them as JSON with event field
+                    // Route based on event type
+                    if (eventType === 'phase') {
                         try {
-                            // Try to parse as our structured event
-                            const parsed = JSON.parse(rawData);
-
-                            // Detect event type from content
-                            if (parsed.phase !== undefined && parsed.label !== undefined) {
-                                // Phase event
-                                setState(prev => ({
-                                    ...prev,
-                                    phase: parsed.phase,
-                                    phaseLabel: parsed.label,
-                                    status: 'processing',
-                                }));
-                            } else if (parsed.text !== undefined) {
-                                // Token event
+                            const parsed = JSON.parse(dataStr);
+                            setState(prev => ({
+                                ...prev,
+                                phase: parsed.phase,
+                                phaseLabel: parsed.label,
+                                status: 'processing',
+                            }));
+                        } catch { }
+                    } else if (eventType === 'token') {
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            if (parsed.text) {
                                 setState(prev => ({
                                     ...prev,
                                     tokens: prev.tokens + parsed.text,
                                     status: 'processing',
                                 }));
-                            } else if (parsed.status !== undefined) {
-                                // Status event
-                                setState(prev => ({
-                                    ...prev,
-                                    status: parsed.status as any,
-                                }));
-                            } else {
-                                // Could be end event (final state) or other
-                                // Check if it has report field → final state
-                                if (parsed.report !== undefined) {
-                                    setState(prev => ({
-                                        ...prev,
-                                        finalResult: parsed,
-                                        status: 'completed',
-                                    }));
-                                }
                             }
-                        } catch {
-                            // Plain text log/error
+                        } catch { }
+                    } else if (eventType === 'status') {
+                        try {
+                            const parsed = JSON.parse(dataStr);
                             setState(prev => ({
                                 ...prev,
-                                logs: [...prev.logs, rawData],
+                                status: parsed.status as any,
                             }));
-                        }
+                        } catch { }
+                    } else if (eventType === 'log') {
+                        setState(prev => ({
+                            ...prev,
+                            logs: [...prev.logs, dataStr],
+                            status: 'processing',
+                        }));
+                    } else if (eventType === 'end') {
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            setState(prev => ({
+                                ...prev,
+                                finalResult: parsed,
+                                status: 'completed',
+                            }));
+                        } catch { }
+                    } else if (eventType === 'error') {
+                        setState(prev => ({
+                            ...prev,
+                            status: 'failed',
+                            error: dataStr,
+                        }));
                     }
                 }
             }
