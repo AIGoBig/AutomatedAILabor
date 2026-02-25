@@ -29,13 +29,15 @@ def _get_llm():
         return None
     
     from langchain_openai import ChatOpenAI
-    kwargs = {"model": "gemini-3-flash", "temperature": 0.3, "api_key": openai_key}
+    kwargs = {"model": "gemini-3-flash", "temperature": 0.3, "api_key": openai_key, "streaming": True}
     if openai_base:
         kwargs["base_url"] = openai_base
     return ChatOpenAI(**kwargs)
 
 
-async def supervisor_clarify_node(state: AgentState):
+from langchain_core.runnables import RunnableConfig
+
+async def supervisor_clarify_node(state: AgentState, config: RunnableConfig):
     """
     Phase 1: Requirement Clarification.
     Async for LangGraph astream_events token interception.
@@ -73,7 +75,7 @@ async def supervisor_clarify_node(state: AgentState):
             response = await llm.ainvoke([
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=f"任务类型: {task_type}\n用户需求: {user_input}")
-            ])
+            ], config)
             
             task_spec = response.content
             state["logs"].append("📋 需求分析完成，已生成任务规格书 (TaskSpec)")
@@ -103,7 +105,7 @@ async def supervisor_clarify_node(state: AgentState):
     }
 
 
-async def supervisor_review_node(state: AgentState):
+async def supervisor_review_node(state: AgentState, config: RunnableConfig):
     """
     Phase 2: Quality Review.
     Async for LangGraph astream_events token interception.
@@ -158,7 +160,7 @@ async def supervisor_review_node(state: AgentState):
             response = await llm.ainvoke([
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=f"TaskSpec:\n{task_spec}\n\n执行结果:\n{report[:3000]}")
-            ])
+            ], config)
             
             review_text = response.content
             is_approved = "APPROVED" in review_text and "REVISION_NEEDED" not in review_text

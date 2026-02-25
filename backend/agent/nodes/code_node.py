@@ -8,7 +8,9 @@ import re
 from dotenv import load_dotenv
 
 
-async def code_node(state: AgentState):
+from langchain_core.runnables import RunnableConfig
+
+async def code_node(state: AgentState, config: RunnableConfig):
     """
     Generates code based on the user's engineering goal.
     Async to allow LangGraph's astream_events to intercept on_chat_model_stream tokens.
@@ -53,7 +55,7 @@ async def code_node(state: AgentState):
         for current_model in models_to_try:
             if report_content: break
             
-            kwargs = {"model": current_model, "temperature": 0.2, "api_key": openai_key}
+            kwargs = {"model": current_model, "temperature": 0.2, "api_key": openai_key, "streaming": True}
             if openai_base:
                 kwargs["base_url"] = openai_base
                 
@@ -69,7 +71,7 @@ async def code_node(state: AgentState):
                     print(f"--- ASYNC LANGCHAIN CODE CALL (Model: {current_model}, Attempt: {attempt + 1}) ---")
                     
                     # CRITICAL: Use ainvoke so LangGraph's astream_events can intercept tokens
-                    response = await llm.ainvoke(messages)
+                    response = await llm.ainvoke(messages, config)
                     report_content = response.content
                     print(f"--- SUCCESSFUL ASYNC CODE CALL (Model: {current_model}) ---")
                     

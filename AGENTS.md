@@ -205,7 +205,7 @@ workflow.add_conditional_edges(
 - [x] 后端 SSE 端点 (`/api/jobs/{id}/stream`)
 - [x] LangGraph `StateGraph` 编译
 - [x] `generate_node` 切换到 LangChain ChatOpenAI
-- [ ] 前端流式解析 + 打字机效果
+- [x] 前端流式解析 + 打字机效果
 
 ### Phase 3.2: 监督智能体
 - [ ] `supervisor_clarify_node`: 需求澄清逻辑

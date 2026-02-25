@@ -267,6 +267,10 @@ async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db
                 
                 kind = event["event"]
                 name = event.get("name", "")
+                
+                # Debug: log all event types to backend terminal
+                if kind not in ("on_chain_start", "on_chain_end", "on_chain_stream"):
+                    print(f"SSE_DEBUG [{job_id[:8]}]: kind={kind}, name={name}")
 
                 # Supervisor & Node lifecycle events
                 if kind == "on_chain_start":
@@ -281,6 +285,14 @@ async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db
                     content = event["data"]["chunk"].content
                     if content:
                         yield {"event": "token", "data": json.dumps({"text": content})}
+                
+                elif kind == "on_llm_stream":
+                    # Alternative event name in some LangGraph versions
+                    chunk = event.get("data", {}).get("chunk", "")
+                    if hasattr(chunk, "content") and chunk.content:
+                        yield {"event": "token", "data": json.dumps({"text": chunk.content})}
+                    elif isinstance(chunk, str) and chunk:
+                        yield {"event": "token", "data": json.dumps({"text": chunk})}
                         
                 elif kind == "on_chain_end" and name == "LangGraph":
                     # Capture the final state from the overarching graph

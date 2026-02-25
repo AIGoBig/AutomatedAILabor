@@ -51,34 +51,13 @@ export function useAgentStream() {
             if (!reader) throw new Error('No readable stream');
 
             const decoder = new TextDecoder();
-            let buffer = '';
+            const { createParser } = await import('eventsource-parser');
+            const parser = createParser({
+                onEvent: (event) => {
+                    const eventType = event.event;
+                    const dataStr = event.data;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                // SSE format: "event: <type>\ndata: <payload>\n\n"
-                // Split by double newline to get complete SSE messages
-                const messages = buffer.split('\n\n');
-                buffer = messages.pop() || ''; // Keep the incomplete last chunk
-
-                for (const msg of messages) {
-                    const lines = msg.split('\n');
-                    let eventType = '';
-                    let dataStr = '';
-
-                    for (const line of lines) {
-                        if (line.startsWith('event:')) {
-                            eventType = line.slice(6).trim();
-                        } else if (line.startsWith('data:')) {
-                            dataStr = line.slice(5).trim();
-                        }
-                        // Skip ping/comment lines starting with ':'
-                    }
-
-                    if (!dataStr) continue;
+                    if (!dataStr) return;
 
                     // Route based on event type
                     if (eventType === 'phase') {
@@ -133,6 +112,12 @@ export function useAgentStream() {
                         }));
                     }
                 }
+            });
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                parser.feed(decoder.decode(value, { stream: true }));
             }
         } catch (err: any) {
             if (err.name !== 'AbortError') {

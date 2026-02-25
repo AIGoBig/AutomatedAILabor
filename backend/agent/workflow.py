@@ -17,7 +17,9 @@ from .nodes.supervisor_node import supervisor_clarify_node, supervisor_review_no
 from .state import AgentState
 
 
-async def executor_node(state: AgentState):
+from langchain_core.runnables import RunnableConfig
+
+async def executor_node(state: AgentState, config: RunnableConfig):
     """
     Unified executor that routes to research+generate or code based on task_type.
     Async to support proper astream_events token interception.
@@ -43,11 +45,11 @@ async def executor_node(state: AgentState):
             research_output = research_node(modified_state)
             modified_state.update(research_output)
         
-        generate_output = await generate_node(modified_state)
+        generate_output = await generate_node(modified_state, config)
         return generate_output
     
     elif task_type == "code":
-        code_output = await code_node(modified_state)
+        code_output = await code_node(modified_state, config)
         return code_output
     
     # Fallback
