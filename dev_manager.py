@@ -11,6 +11,10 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 FRONTEND_DIR = os.path.join(ROOT_DIR, "frontend")
 
+# Ensure Node.js is in PATH for background processes
+NODE_PATHS = "/usr/local/n/versions/node/20.17.0/bin:/opt/homebrew/bin"
+os.environ["PATH"] = NODE_PATHS + ":" + os.environ.get("PATH", "")
+
 # Commands
 BACKEND_CMD = [
     os.path.join(BACKEND_DIR, "venv", "bin", "python3"),
@@ -20,7 +24,7 @@ BACKEND_CMD = [
     "--reload"
 ]
 
-FRONTEND_CMD = ["npm", "run", "dev"]
+FRONTEND_CMD = ["/usr/local/n/versions/node/20.17.0/bin/npm", "run", "dev"]
 
 class ServiceManager:
     def __init__(self, name, cmd, cwd):
