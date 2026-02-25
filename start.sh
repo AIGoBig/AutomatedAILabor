@@ -6,4 +6,4 @@
 pkill -f dev_manager.py; pkill -f uvicorn; pkill -f next-server; sleep 1
 
 echo "🚀 Starting Automated AI Labor V2..."
-python3 dev_manager.py
+nohup python3 dev_manager.py > logs/dev_manager.log 2>&1 &

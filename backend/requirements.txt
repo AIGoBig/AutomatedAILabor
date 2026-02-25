@@ -11,3 +11,4 @@ langchain-openai
 langchain-anthropic
 passlib[bcrypt]
 python-jose[cryptography]
+sse-starlette

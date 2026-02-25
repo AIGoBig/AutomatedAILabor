@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, Optional
 import operator
 
 class AgentState(TypedDict):
@@ -16,3 +16,9 @@ class AgentState(TypedDict):
     input_tokens: int
     output_tokens: int
     cost: float
+    # Supervisor fields
+    phase: str  # 'clarify', 'execute', 'review', 'done'
+    task_spec: str  # Structured specification from supervisor
+    review_feedback: str  # Supervisor's review comments
+    review_approved: bool  # Whether supervisor approved the result
+    messages: list[dict]  # Multi-turn chat messages [{"role": "...", "content": "..."}]

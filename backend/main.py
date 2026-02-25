@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, status
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
@@ -10,8 +10,10 @@ import uuid
 import sys
 import os
 import json
+import asyncio
 from jose import JWTError, jwt
 from dotenv import load_dotenv
+from sse_starlette.sse import EventSourceResponse
 
 # Load environment variables from backend/.env
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -26,7 +28,8 @@ elif "localhost" not in os.environ["NO_PROXY"]:
 # Ensure backend directory is in path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from agent.workflow import run_agent
+from agent.workflow import run_agent, agent_graph
+from agent.state import AgentState
 from database import engine, SessionLocal, Base, get_db
 from models import Job, User
 from auth import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY
@@ -66,7 +69,7 @@ class JobResponseModel(BaseModel):
 
 def process_job(job_id: str, goal: str, model_id: str, db: Session):
     """
-    Background task wrapper for the agent.
+    Background task wrapper for the agent (Legacy Sync version).
     """
     print(f"Processing job {job_id}...")
     
@@ -109,7 +112,7 @@ def read_root():
     return {"message": "Automated AI Labor API is Running", "status": "active"}
 
 @app.get("/health")
-def health_check():
+def health_check_root():
     return {"status": "ok"}
 
 class UserCreate(BaseModel):
@@ -197,11 +200,127 @@ def create_job(
     db.commit()
     db.refresh(new_job)
     
-    # Run the agent in the background
-    background_tasks.add_task(process_job, job_id, job_req.goal, job_req.model, db)
+    # Instead of running the legacy background process_job, we leave it queued.
+    # The client will hit /stream, which will actually execute the job streamingly.
+    # Note: for MVP Phase 3 testing, we just queue it here and the stream endpoint executes it.
     
-    print(f"Queued job {job_id} for {job_req.type}: {job_req.goal} (User: {user_id})")
+    print(f"Queued job {job_id} for streaming execution. Goal: {job_req.goal}")
     return {"job_id": job_id, "status": "queued"}
+
+@app.get("/api/jobs/{job_id}/stream")
+async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db)):
+    """
+    SSE endpoint to stream the LangGraph execution back to the client.
+    Because LangGraph execution is CPU/Network intensive, we run it in isolation
+    while streaming `astream_events`.
+    """
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status == "completed" or job.status == "failed":
+        # Handle jobs that are already finished
+        async def mock_stream_finished():
+            yield {"event": "status", "data": json.dumps({"status": job.status})}
+            yield {"event": "end", "data": job.result or "{}"}
+        return EventSourceResponse(mock_stream_finished())
+
+    # Mark as processing
+    job.status = "processing"
+    db.commit()
+
+    async def event_generator():
+        # Initialize AgentState with supervisor fields
+        state: AgentState = {
+            "input": job.goal,
+            "search_results": [],
+            "report": "",
+            "revision_number": 0,
+            "max_revisions": 3,
+            "model": job.model or "gemini-1.5-flash",
+            "logs": ["初始化多智能体流水线 (SSE Streaming)..."],
+            "task_type": job.type,
+            "code_blocks": [],
+            "file_structure": [],
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost": 0.0,
+            # Supervisor fields
+            "phase": "clarify",
+            "task_spec": "",
+            "review_feedback": "",
+            "review_approved": False,
+            "messages": []
+        }
+        
+        yield {"event": "status", "data": json.dumps({"status": "processing"})}
+        yield {"event": "log", "data": "Multi-Agent Pipeline Connected. Supervisor taking over..."}
+
+        try:
+            final_state = None
+            # Intercept real-time events from LangGraph
+            async for event in agent_graph.astream_events(state, version="v2"):
+                # Handle client disconnect
+                if await request.is_disconnected():
+                    print(f"Client disconnected during job {job_id}")
+                    break
+                
+                kind = event["event"]
+                name = event.get("name", "")
+
+                # Supervisor & Node lifecycle events
+                if kind == "on_chain_start":
+                    if name == "supervisor_clarify":
+                        yield {"event": "phase", "data": json.dumps({"phase": "clarify", "label": "🧑‍💼 监督智能体 — 需求分析中"})}
+                    elif name == "executor":
+                        yield {"event": "phase", "data": json.dumps({"phase": "execute", "label": "⚙️ 执行智能体 — 生产中"})}
+                    elif name == "supervisor_review":
+                        yield {"event": "phase", "data": json.dumps({"phase": "review", "label": "🔍 监督智能体 — 质量评审中"})}
+
+                elif kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield {"event": "token", "data": json.dumps({"text": content})}
+                        
+                elif kind == "on_chain_end" and name == "LangGraph":
+                    # Capture the final state from the overarching graph
+                    final_state = event["data"].get("output")
+                    
+            if final_state:
+                # Execution finished successfully
+                db_bg = SessionLocal()
+                try:
+                    update_job = db_bg.query(Job).filter(Job.id == job_id).first()
+                    if update_job:
+                        update_job.status = "completed"
+                        update_job.result = json.dumps(final_state)
+                        update_job.input_tokens = str(final_state.get("input_tokens", 0))
+                        update_job.output_tokens = str(final_state.get("output_tokens", 0))
+                        update_job.cost = str(round(final_state.get("cost", 0.0), 6))
+                        db_bg.commit()
+                finally:
+                    db_bg.close()
+                
+                yield {"event": "status", "data": json.dumps({"status": "completed"})}
+                yield {"event": "end", "data": json.dumps(final_state)}
+            else:
+                 yield {"event": "error", "data": "Graph completed but no final state was generated."}
+
+        except Exception as e:
+            print(f"Error during streaming execution of {job_id}: {e}")
+            db_bg = SessionLocal()
+            try:
+                fail_job = db_bg.query(Job).filter(Job.id == job_id).first()
+                if fail_job:
+                    fail_job.status = "failed"
+                    fail_job.result = json.dumps({"error": str(e)})
+                    db_bg.commit()
+            finally:
+                db_bg.close()
+            yield {"event": "status", "data": json.dumps({"status": "failed"})}
+            yield {"event": "error", "data": str(e)}
+
+    return EventSourceResponse(event_generator())
 
 @app.get("/api/jobs/{job_id}")
 def get_job_status(job_id: str, db: Session = Depends(get_db)):

@@ -1,32 +1,98 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import Navbar from '@/components/ui/Navbar';
+import { useEffect, useState, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Terminal, Code, FileCode, Check, Copy, ArrowLeft, Download, AlertTriangle, Activity, XCircle } from 'lucide-react';
+import { Terminal, FileCode, Check, Copy, ArrowLeft, Download, AlertTriangle, Activity, XCircle, Bot, Eye, Cpu } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/api';
-// We will import these dynamically or use simple rendering if install fails/is slow
-// But assuming install works:
+import { useAgentStream } from '@/lib/useAgentStream';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// Next.js 15 unwraps params
+// Phase indicator icon mapping
+const phaseIcons: Record<string, any> = {
+    clarify: Eye,
+    execute: Cpu,
+    review: Bot,
+};
+
+const phaseColors: Record<string, string> = {
+    clarify: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
+    execute: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+    review: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+};
+
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
     const { id } = use(params) as { id: string };
-
+    const { state: stream, startStream, stopStream } = useAgentStream();
     const [job, setJob] = useState<any>(null);
     const [error, setError] = useState('');
+    const [streamStarted, setStreamStarted] = useState(false);
+    const tokenRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll token display
+    useEffect(() => {
+        if (tokenRef.current) {
+            tokenRef.current.scrollTop = tokenRef.current.scrollHeight;
+        }
+    }, [stream.tokens]);
+
+    // Fetch initial job data, then start streaming if queued/processing
+    useEffect(() => {
+        if (!id) return;
+        if (id === 'start') {
+            window.location.href = '/start';
+            return;
+        }
+
+        const fetchAndStream = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await apiGet(`/api/jobs/${id}`, token);
+                if (!res.ok) throw new Error('Job not found');
+                const data = await res.json();
+                setJob(data);
+
+                // If job is queued or processing, start the SSE stream
+                if ((data.status === 'queued' || data.status === 'processing') && !streamStarted) {
+                    setStreamStarted(true);
+                    startStream(id, token);
+                }
+            } catch (err) {
+                console.error(err);
+                setError('无法加载任务详情');
+            }
+        };
+
+        fetchAndStream();
+        return () => stopStream();
+    }, [id]);
+
+    // When stream completes, update local job state
+    useEffect(() => {
+        if (stream.status === 'completed' && stream.finalResult) {
+            setJob((prev: any) => ({
+                ...prev,
+                status: 'completed',
+                result: stream.finalResult,
+                input_tokens: stream.finalResult.input_tokens,
+                output_tokens: stream.finalResult.output_tokens,
+                cost: stream.finalResult.cost,
+            }));
+        } else if (stream.status === 'failed') {
+            setJob((prev: any) => ({ ...prev, status: 'failed' }));
+        }
+    }, [stream.status, stream.finalResult]);
 
     const handleRetry = async () => {
         const token = localStorage.getItem('token');
         try {
             const res = await apiPost(`/api/jobs/${id}/retry`, {}, token);
             if (res.ok) {
-                const data = await res.json();
-                console.log('Retry initiated:', data);
+                setStreamStarted(false);
+                window.location.reload();
             }
         } catch (err) {
             console.error('Retry failed:', err);
@@ -38,46 +104,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         try {
             const res = await apiPost(`/api/jobs/${id}/cancel`, {}, token);
             if (res.ok) {
-                const data = await res.json();
-                console.log('Cancel initiated:', data);
+                stopStream();
+                window.location.reload();
             }
         } catch (err) {
             console.error('Cancel failed:', err);
         }
     };
-
-    useEffect(() => {
-        if (!id) return;
-        if (id === 'start') {
-            window.location.href = '/start';
-            return;
-        }
-
-        const fetchJob = async (currentInterval?: NodeJS.Timeout) => {
-            try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-                const res = await fetch(`${apiUrl}/api/jobs/${id}`);
-                if (!res.ok) throw new Error('Job not found');
-                const data = await res.json();
-                setJob(data);
-
-                // Smart Polling: Stop if job is finished
-                if (data.status === 'completed' || data.status === 'failed') {
-                    if (currentInterval) {
-                        clearInterval(currentInterval);
-                        console.log(`Polling stopped for job ${id} (status: ${data.status})`);
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-                setError('无法加载任务详情');
-            }
-        };
-
-        const interval = setInterval(() => fetchJob(interval), 2000);
-        fetchJob(interval); // Initial fetch with interval ref
-        return () => clearInterval(interval);
-    }, [id]);
 
     if (error) return (
         <div className="min-h-screen bg-neutral-950 text-red-500 flex items-center justify-center">
@@ -90,6 +123,10 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
             正在连接控制中心...
         </div>
     );
+
+    const isStreaming = stream.status === 'processing' || stream.status === 'connecting';
+    const isCompleted = job.status === 'completed' && job.result?.report;
+    const isFailed = job.status === 'failed';
 
     return (
         <div className="min-h-screen text-neutral-100 font-sans selection:bg-emerald-500/30">
@@ -118,22 +155,22 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                         </h1>
                     </div>
 
-                    <div className={`px-6 py-3 rounded-2xl border flex items-center gap-3 font-bold transition-all shadow-xl ${job.status === 'completed' ? 'glass-emerald text-emerald-400 border-emerald-500/50' :
-                        job.status === 'failed' ? 'bg-red-500/10 border-red-500 text-red-400' :
+                    <div className={`px-6 py-3 rounded-2xl border flex items-center gap-3 font-bold transition-all shadow-xl ${isCompleted ? 'glass-emerald text-emerald-400 border-emerald-500/50' :
+                        isFailed ? 'bg-red-500/10 border-red-500 text-red-400' :
                             'glass border-yellow-500/50 text-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.2)]'
                         }`}>
-                        <div className={`w-2 h-2 rounded-full ${job.status === 'completed' ? 'bg-emerald-400 shadow-[0_0_10px_#10b981]' : job.status === 'failed' ? 'bg-red-400' : 'bg-yellow-400 animate-pulse shadow-[0_0_10px_#eab308]'}`} />
-                        {job.status === 'completed' ? '任务已送达' : job.status === 'failed' ? '任务中断' : '正在合成成果'}
+                        <div className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-emerald-400 shadow-[0_0_10px_#10b981]' : isFailed ? 'bg-red-400' : 'bg-yellow-400 animate-pulse shadow-[0_0_10px_#eab308]'}`} />
+                        {isCompleted ? '任务已送达' : isFailed ? '任务中断' : '多智能体协作中'}
                     </div>
                 </div>
 
                 {/* Main Content Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    {/* Left Column: Result or Process */}
+                    {/* Left Column: Result or Streaming View */}
                     <div className="lg:col-span-3">
-                        {job.status === 'completed' && job.result?.report ? (
+                        {isCompleted ? (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <article className={`prose prose-invert max-w-none glass p-10 md:p-16 rounded-[2.5rem] relative overflow-hidden shadow-2xl`}>
+                                <article className="prose prose-invert max-w-none glass p-10 md:p-16 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
@@ -196,20 +233,16 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     </button>
                                 </div>
                             </div>
-                        ) : job.status === 'failed' ? (
+                        ) : isFailed ? (
                             <div className="flex flex-col items-center justify-center py-32 glass rounded-[2.5rem] border-red-500/20 text-center shadow-2xl">
                                 <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 text-red-400">
                                     <AlertTriangle size={40} />
                                 </div>
                                 <h3 className="text-2xl font-bold text-white mb-2 underline decoration-red-500/50 underline-offset-8">部署失败</h3>
-                                <p className="text-neutral-400 max-w-md mx-auto mb-8">代理在执行过程中遇到了协议错误。这可能是由不稳定的外部 API 连接导致的。</p>
+                                <p className="text-neutral-400 max-w-md mx-auto mb-8">
+                                    {stream.error || '代理在执行过程中遇到了协议错误。'}
+                                </p>
                                 <div className="flex gap-4">
-                                    <button
-                                        onClick={() => window.location.reload()}
-                                        className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors font-bold uppercase tracking-widest text-xs border border-white/10"
-                                    >
-                                        查看日志
-                                    </button>
                                     <button
                                         onClick={handleRetry}
                                         className="px-8 py-3 bg-emerald-500 text-black rounded-xl transition-colors font-bold uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:bg-emerald-400"
@@ -219,8 +252,25 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                 </div>
                             </div>
                         ) : (
-                            /* Processing Timeline View */
+                            /* ===== STREAMING VIEW ===== */
                             <div className="space-y-6">
+                                {/* Phase Indicator */}
+                                {stream.phaseLabel && (
+                                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl border transition-all duration-500 ${phaseColors[stream.phase] || 'text-neutral-400 border-white/10 bg-white/5'}`}>
+                                        {(() => {
+                                            const Icon = phaseIcons[stream.phase] || Terminal;
+                                            return <Icon size={20} className="animate-pulse" />;
+                                        })()}
+                                        <div>
+                                            <div className="text-sm font-bold">{stream.phaseLabel}</div>
+                                            <div className="text-[10px] opacity-60 uppercase tracking-widest font-bold">
+                                                {stream.phase === 'clarify' ? '需求分析阶段' : stream.phase === 'execute' ? '生产执行阶段' : stream.phase === 'review' ? '质量评审阶段' : '初始化中'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Live Streaming Content */}
                                 <div className="p-8 glass rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                                     <div className="absolute top-0 right-0 p-6">
                                         <button
@@ -228,40 +278,52 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                             className="text-[10px] font-black text-red-400/50 hover:text-red-400 transition-colors uppercase tracking-widest flex items-center gap-2 px-3 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/10"
                                         >
                                             <XCircle size={12} />
-                                            终止当前行动
+                                            终止
                                         </button>
                                     </div>
-                                    <div className="flex items-center gap-6 mb-10">
-                                        <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+
+                                    {/* Streaming Title */}
+                                    <div className="flex items-center gap-6 mb-8">
+                                        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
                                         <div>
-                                            <h3 className="text-2xl font-bold text-white tracking-tight">代理正在渗透搜索网络...</h3>
-                                            <p className="text-neutral-500 font-medium">正在利用 LLM 合成深度洞察，预计剩余时间 45s。</p>
+                                            <h3 className="text-xl font-bold text-white tracking-tight">多智能体协同工作中</h3>
+                                            <p className="text-neutral-500 text-sm font-medium">监督 → 执行 → 评审 → 交付</p>
                                         </div>
                                     </div>
 
-                                    {/* Timeline Logs */}
-                                    <div className="space-y-4 relative pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-white/10">
-                                        {(job.result?.logs || []).length > 0 ? (
-                                            job.result.logs.map((log: string, idx: number) => (
+                                    {/* Token Stream Display */}
+                                    {stream.tokens && (
+                                        <div
+                                            ref={tokenRef}
+                                            className="prose prose-invert prose-sm max-w-none max-h-[60vh] overflow-y-auto pr-4 mb-6 border-t border-white/5 pt-6"
+                                        >
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {stream.tokens}
+                                            </ReactMarkdown>
+                                            {isStreaming && (
+                                                <span className="inline-block w-2 h-5 bg-emerald-400 animate-pulse ml-1 align-text-bottom" />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Log Timeline */}
+                                    {stream.logs.length > 0 && (
+                                        <div className="space-y-3 relative pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-white/10 border-t border-white/5 pt-6">
+                                            {stream.logs.map((log, idx) => (
                                                 <div key={idx} className="relative group">
                                                     <div className="absolute -left-[25px] top-1.5 w-2 h-2 rounded-full bg-neutral-700 group-last:bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-colors" />
-                                                    <p className={`text-sm ${idx === job.result.logs.length - 1 ? 'text-emerald-400 font-bold' : 'text-neutral-500'}`}>
+                                                    <p className={`text-sm ${idx === stream.logs.length - 1 ? 'text-emerald-400 font-bold' : 'text-neutral-500'}`}>
                                                         {log}
                                                     </p>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-sm text-neutral-600 italic">正在等待上行链路响应...</div>
-                                        )}
-                                    </div>
-                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
-                                {/* Simulated Preview Skeleton */}
-                                <div className="p-8 border border-white/5 border-dashed rounded-[2.5rem] bg-black/40 opacity-40">
-                                    <div className="h-4 bg-neutral-800 rounded w-1/3 mb-4"></div>
-                                    <div className="h-3 bg-neutral-800 rounded w-full mb-2"></div>
-                                    <div className="h-3 bg-neutral-800 rounded w-5/6 mb-2"></div>
-                                    <div className="h-3 bg-neutral-800 rounded w-4/6"></div>
+                                    {/* Idle / Connecting state */}
+                                    {!stream.tokens && stream.logs.length === 0 && (
+                                        <div className="text-sm text-neutral-600 italic">正在建立与智能体集群的连接...</div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -273,23 +335,23 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             <h4 className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-6 px-1">任务元数据</h4>
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
-                                    <span className="text-xs text-neutral-500">深度等级</span>
-                                    <span className="text-xs font-bold text-white">Ultra (Lv.4)</span>
+                                    <span className="text-xs text-neutral-500">架构模式</span>
+                                    <span className="text-xs font-bold text-white">Multi-Agent v2</span>
                                 </div>
                                 <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
                                     <span className="text-xs text-neutral-500 font-bold">模型驱动</span>
                                     <span className="text-xs font-bold text-emerald-400">{job.model || 'Gemini 3 Flash'}</span>
                                 </div>
-                                {job.input_tokens && (
+                                {(job.input_tokens || stream.finalResult?.input_tokens) && (
                                     <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
                                         <span className="text-xs text-neutral-500">输入能量</span>
-                                        <span className="text-xs font-bold text-white font-mono">{job.input_tokens.toLocaleString()}</span>
+                                        <span className="text-xs font-bold text-white font-mono">{(job.input_tokens || stream.finalResult?.input_tokens || 0).toLocaleString()}</span>
                                     </div>
                                 )}
-                                {job.output_tokens && (
+                                {(job.output_tokens || stream.finalResult?.output_tokens) && (
                                     <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
                                         <span className="text-xs text-neutral-500">输出能量</span>
-                                        <span className="text-xs font-bold text-white font-mono">{job.output_tokens.toLocaleString()}</span>
+                                        <span className="text-xs font-bold text-white font-mono">{(job.output_tokens || stream.finalResult?.output_tokens || 0).toLocaleString()}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
@@ -301,17 +363,36 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             </div>
                         </section>
 
+                        {/* Agent Activity Panel */}
                         <section className="p-6 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-3xl border border-emerald-500/10 glass">
                             <div className="flex items-center gap-2 mb-4 text-emerald-400">
                                 <Activity size={14} />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest">代理建议</h4>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest">智能体状态</h4>
                             </div>
-                            <p className="text-xs text-neutral-400 leading-relaxed font-medium">
-                                基于此研究，建议针对“AI编程助手在初级后端岗位的渗透率”进行进一步的垂直细分搜索。
-                            </p>
-                            <button className="mt-4 w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest border border-emerald-500/20">
-                                启动后续任务
-                            </button>
+                            {isStreaming ? (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                        <span className="text-xs text-emerald-400 font-bold">在线运行中</span>
+                                    </div>
+                                    <p className="text-xs text-neutral-400 leading-relaxed font-medium">
+                                        {stream.phaseLabel || '正在初始化智能体集群...'}
+                                    </p>
+                                </div>
+                            ) : isCompleted ? (
+                                <p className="text-xs text-neutral-400 leading-relaxed font-medium">
+                                    任务已完成。监督智能体已验收通过。
+                                </p>
+                            ) : (
+                                <p className="text-xs text-neutral-400 leading-relaxed font-medium">
+                                    等待连接...
+                                </p>
+                            )}
+                            {isCompleted && (
+                                <button className="mt-4 w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest border border-emerald-500/20">
+                                    启动后续任务
+                                </button>
+                            )}
                         </section>
                     </div>
                 </div>
