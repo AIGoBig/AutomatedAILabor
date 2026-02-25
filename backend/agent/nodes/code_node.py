@@ -1,5 +1,6 @@
 """
-Code generation node - uses LangChain ChatOpenAI for LangGraph streaming compatibility.
+Code generation node - async version for LangGraph streaming support.
+Uses LangChain ChatOpenAI with ainvoke for proper astream_events token interception.
 """
 from ..state import AgentState
 import os
@@ -7,10 +8,10 @@ import re
 from dotenv import load_dotenv
 
 
-def code_node(state: AgentState):
+async def code_node(state: AgentState):
     """
     Generates code based on the user's engineering goal.
-    Uses LangChain ChatOpenAI so LangGraph's astream_events can intercept token streams.
+    Async to allow LangGraph's astream_events to intercept on_chat_model_stream tokens.
     """
     query = state['input']
     model_id = state.get("model", "gemini-3-flash")
@@ -30,8 +31,6 @@ def code_node(state: AgentState):
 
     print(f"DEBUG: Code Node - Key present: {bool(openai_key)}, Base: {openai_base}")
 
-    state['logs'].append(f"正在分析代码工程需求...")
-    
     system_message = """You are an expert software engineer. 
     Your task is to generate high-quality, production-ready code based on the user request.
     Always provide code in markdown blocks with language tags. 
@@ -49,6 +48,7 @@ def code_node(state: AgentState):
     if openai_key:
         from langchain_openai import ChatOpenAI
         from langchain_core.messages import SystemMessage, HumanMessage
+        import asyncio
 
         for current_model in models_to_try:
             if report_content: break
@@ -66,13 +66,12 @@ def code_node(state: AgentState):
             
             for attempt in range(max_retries):
                 try:
-                    state['logs'].append(f"正在启动 {current_model} 进行代码架构设计与编写 (第 {attempt + 1}/{max_retries} 次尝试)...")
-                    print(f"--- ATTEMPTING LANGCHAIN CODE CALL (Model: {current_model}, Attempt: {attempt + 1}) ---")
+                    print(f"--- ASYNC LANGCHAIN CODE CALL (Model: {current_model}, Attempt: {attempt + 1}) ---")
                     
-                    response = llm.invoke(messages)
+                    # CRITICAL: Use ainvoke so LangGraph's astream_events can intercept tokens
+                    response = await llm.ainvoke(messages)
                     report_content = response.content
-                    state['logs'].append("代码合成已完成。正在进行静态检查与排版优化...")
-                    print(f"--- SUCCESSFUL LANGCHAIN CODE CALL (Model: {current_model}) ---")
+                    print(f"--- SUCCESSFUL ASYNC CODE CALL (Model: {current_model}) ---")
                     
                     # Metrics
                     input_tokens = 0
@@ -82,7 +81,7 @@ def code_node(state: AgentState):
                         output_tokens = response.usage_metadata.get('output_tokens', 0)
                     cost = (input_tokens * 0.00015 / 1000) + (output_tokens * 0.0006 / 1000)
 
-                    # Simple Code Extraction
+                    # Code block extraction
                     code_blocks = []
                     blocks = re.findall(r'```(\w+)\n(.*?)\n```', report_content, re.DOTALL)
                     for lang, code in blocks:
@@ -101,22 +100,11 @@ def code_node(state: AgentState):
                     error_msg = str(e)
                     print(f"DEBUG: Code Node Attempt {attempt + 1} Failed for {current_model}: {error_msg}")
                     
-                    if "502" in error_msg or "504" in error_msg or "Expecting value" in error_msg:
-                        state['logs'].append(f"代理协议错误 (502/504/JSON Failure)。正在重试...")
-                    else:
-                        state['logs'].append(f"API 调用失败: {error_msg[:100]}...")
-                    
                     if attempt < max_retries - 1:
-                        import time
-                        time.sleep(retry_delay)
+                        await asyncio.sleep(retry_delay)
                     else:
-                        state['logs'].append("已达到最大重试次数。")
                         break
-    else:
-        print(f"DEBUG: Code Node Error - Missing API key")
-        state['logs'].append("错误: 缺少有效的模型 API 配置")
-
+    
     # Fallback
-    state['logs'].append("使用通用编码模板作为兜底...")
     report_content = f"# Code Implementation: {query}\n\n```python\n# [FALLBACK] Unable to reach LLM\nprint('Hello World')\n```"
     return {"report": report_content, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}

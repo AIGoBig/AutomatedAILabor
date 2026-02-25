@@ -17,10 +17,10 @@ from .nodes.supervisor_node import supervisor_clarify_node, supervisor_review_no
 from .state import AgentState
 
 
-def executor_node(state: AgentState):
+async def executor_node(state: AgentState):
     """
     Unified executor that routes to research+generate or code based on task_type.
-    Also incorporates review feedback for revision cycles.
+    Async to support proper astream_events token interception.
     """
     task_type = state.get("task_type", "research")
     revision = state.get("revision_number", 0)
@@ -30,30 +30,28 @@ def executor_node(state: AgentState):
     original_input = state["input"]
     if revision > 0 and review_feedback:
         enhanced_input = f"{original_input}\n\n[监督智能体修改意见 (第{revision}轮)]:\n{review_feedback}"
-        state["logs"].append(f"⚙️ 执行智能体收到修改指令，正在进行第 {revision + 1} 次迭代...")
     else:
         enhanced_input = original_input
-        state["logs"].append(f"⚙️ 执行智能体已接收 TaskSpec，正在启动生产流程...")
     
     # Temporarily override input for the sub-nodes
     modified_state = dict(state)
     modified_state["input"] = enhanced_input
     
     if task_type == "research":
-        # Only do research on the first pass
+        # Only do research on the first pass (research_node is sync/simulated, that's OK)
         if revision == 0:
             research_output = research_node(modified_state)
             modified_state.update(research_output)
         
-        generate_output = generate_node(modified_state)
+        generate_output = await generate_node(modified_state)
         return generate_output
     
     elif task_type == "code":
-        code_output = code_node(modified_state)
+        code_output = await code_node(modified_state)
         return code_output
     
     # Fallback
-    return {"report": "Unknown task type", "logs": state["logs"]}
+    return {"report": "Unknown task type"}
 
 
 def review_decision(state: AgentState):

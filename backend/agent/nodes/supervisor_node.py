@@ -35,16 +35,10 @@ def _get_llm():
     return ChatOpenAI(**kwargs)
 
 
-def supervisor_clarify_node(state: AgentState):
+async def supervisor_clarify_node(state: AgentState):
     """
     Phase 1: Requirement Clarification.
-    
-    Analyzes the user's raw input and either:
-    - Generates a clear TaskSpec if requirements are unambiguous
-    - Asks clarifying questions (for future multi-turn support)
-    
-    For now (MVP), this node always generates a TaskSpec and proceeds.
-    Future: will support multi-turn SSE-based user interaction.
+    Async for LangGraph astream_events token interception.
     """
     user_input = state["input"]
     task_type = state.get("task_type", "research")
@@ -76,7 +70,7 @@ def supervisor_clarify_node(state: AgentState):
 重要：始终倾向于生成 TaskSpec 并推进执行。只有在需求极度模糊时才提出澄清问题。"""
 
         try:
-            response = llm.invoke([
+            response = await llm.ainvoke([
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=f"任务类型: {task_type}\n用户需求: {user_input}")
             ])
@@ -109,13 +103,10 @@ def supervisor_clarify_node(state: AgentState):
     }
 
 
-def supervisor_review_node(state: AgentState):
+async def supervisor_review_node(state: AgentState):
     """
     Phase 2: Quality Review.
-    
-    Reviews the executor's output against the TaskSpec.
-    Determines if the result meets acceptance criteria.
-    If not, generates specific revision instructions for the executor.
+    Async for LangGraph astream_events token interception.
     """
     report = state.get("report", "")
     task_spec = state.get("task_spec", "")
@@ -164,7 +155,7 @@ def supervisor_review_node(state: AgentState):
 ---END_REVIEW---"""
 
         try:
-            response = llm.invoke([
+            response = await llm.ainvoke([
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=f"TaskSpec:\n{task_spec}\n\n执行结果:\n{report[:3000]}")
             ])
