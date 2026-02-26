@@ -143,30 +143,38 @@ async def supervisor_review_node(state: AgentState, config: RunnableConfig):
         from langchain_core.messages import SystemMessage, HumanMessage
         
         system_prompt = """你是一位严格的质量评审专家（Review Agent）。你的职责是：
-1. 对比 TaskSpec（任务规格书）和执行结果
-2. 逐条检查验收标准是否满足
-3. 给出明确的评审结论
+1. 对比 TaskSpec（任务规格书）和原始用户期望，评审执行结果
+2. 针对以下三个维度进行打分（1-10分）：
+   - 【需求覆盖度】(是否覆盖了目标与所有要求)
+   - 【逻辑正确性】(结果是否可用、合理、无明显漏洞)
+   - 【安全与合规】(是否健康积极、无违规风险)
+3. 只有当 所有维度均 >= 8 分 且 总分 >= 25 分 时，才能判定为通过。
+4. 给出明确的评审结论标记。
 
-输出格式（严格遵循）:
+输出格式（严格遵循以下标记）：
 ---REVIEW---
-结论: [APPROVED | REVISION_NEEDED]
-评分: [1-10]
-评语: [一段话总结]
-修改建议: 
-- [建议1] (如果APPROVED则写"无")
+评分明细: 
+- 需求覆盖度: [分数]/10
+- 逻辑正确性: [分数]/10
+- 安全与合规: [分数]/10
+总分: [总分]/30
+
+[FEEDBACK: (详细写明缺了什么、怎么改、具体要求；如果通过也请写一句肯定的话)]
+
+[REVIEW_DECISION: (APPROVED 或 REJECTED)]
 ---END_REVIEW---"""
 
         try:
             response = await llm.ainvoke([
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"TaskSpec:\n{task_spec}\n\n执行结果:\n{report[:3000]}")
+                HumanMessage(content=f"TaskSpec:\n{task_spec}\n\n执行结果:\n{report[:4000]}")
             ], config)
             
             review_text = response.content
-            is_approved = "APPROVED" in review_text and "REVISION_NEEDED" not in review_text
+            is_approved = "[REVIEW_DECISION: APPROVED]" in review_text
             
             if is_approved:
-                state["logs"].append("✅ 监督智能体评审通过！结果已达到验收标准")
+                state["logs"].append("✅ 监督智能体评审通过！结果已达到量化验收标准")
                 return {
                     "review_approved": True,
                     "review_feedback": review_text,
@@ -174,7 +182,7 @@ async def supervisor_review_node(state: AgentState, config: RunnableConfig):
                     "logs": state["logs"]
                 }
             else:
-                state["logs"].append(f"🔄 监督智能体要求修订 (第 {revision_number + 1}/{max_revisions} 轮)")
+                state["logs"].append(f"🔄 监督智能体打回重做 (第 {revision_number + 1}/{max_revisions} 轮)")
                 return {
                     "review_approved": False,
                     "review_feedback": review_text,

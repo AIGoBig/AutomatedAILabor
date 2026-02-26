@@ -18,6 +18,12 @@ export interface AgentStreamState {
     status: 'idle' | 'connecting' | 'processing' | 'completed' | 'failed' | 'awaiting_input';
     finalResult: any;
     error: string | null;
+    workbenchVersions: Array<{
+        version: number;
+        report: string;
+        code_blocks: any[];
+        source: string;
+    }>;
 }
 
 const initialState: AgentStreamState = {
@@ -28,6 +34,7 @@ const initialState: AgentStreamState = {
     status: 'idle',
     finalResult: null,
     error: null,
+    workbenchVersions: [],
 };
 
 export function useAgentStream() {
@@ -142,6 +149,20 @@ export function useAgentStream() {
                             logs: [...prev.logs, dataStr],
                             status: 'processing',
                         }));
+                    } else if (eventType === 'workbench_update') {
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            setState(prev => ({
+                                ...prev,
+                                workbenchVersions: [
+                                    ...prev.workbenchVersions,
+                                    {
+                                        version: prev.workbenchVersions.length + 1,
+                                        ...parsed
+                                    }
+                                ]
+                            }));
+                        } catch { }
                     } else if (eventType === 'end') {
                         try {
                             const parsed = JSON.parse(dataStr);

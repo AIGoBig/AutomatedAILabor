@@ -29,6 +29,7 @@ function AuthButtons() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         setIsLoggedIn(!!localStorage.getItem('token'));
     }, []);
 

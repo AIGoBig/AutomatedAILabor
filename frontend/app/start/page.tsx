@@ -1,9 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight } from 'lucide-react';
 import { apiPost } from '@/lib/api';
+
+// Array of rotating examples
+const promptExamples = [
+    { type: 'research', goal: '全球 AI 行业 2026 年度预测报告' },
+    { type: 'research', goal: '人形机器人 2026 商业化落地路线图' },
+    { type: 'code', goal: '用 React + Tailwind 编写一个精美的个人主页组件' },
+    { type: 'code', goal: '使用 Python 绘制分形几何图形并输出为动画' },
+    { type: 'code', goal: '构建一个基于 FastAPI 的 JWT 权限认证系统' },
+];
 
 export default function StartPage() {
     const router = useRouter();
@@ -11,11 +20,21 @@ export default function StartPage() {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         type: 'research',
-        goal: '全球 AI 行业 2024 年度报告',
+        goal: '',
         description: '',
         email: '',
         model: 'gemini-3-flash'
     });
+
+    // Pick a random example on mount
+    useEffect(() => {
+        const randomExample = promptExamples[Math.floor(Math.random() * promptExamples.length)];
+        setFormData(prev => ({
+            ...prev,
+            type: randomExample.type,
+            goal: randomExample.goal
+        }));
+    }, []);
 
     const models = [
         { id: 'gemini-3-flash', name: 'Gemini 3 Flash', desc: '极速预览' },

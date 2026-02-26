@@ -310,9 +310,22 @@ async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db
                     elif isinstance(chunk, str) and chunk:
                         yield {"event": "token", "data": json.dumps({"text": chunk})}
                         
-                elif kind == "on_chain_end" and name == "LangGraph":
-                    # Capture the final state from the overarching graph
-                    final_state = event["data"].get("output")
+                elif kind == "on_chain_end":
+                    if name == "executor" or name == "local_execution":
+                        node_output = event.get("data", {}).get("output", {})
+                        if node_output and isinstance(node_output, dict) and "report" in node_output:
+                            # 发送中间跑出来的结构化报告，供前端 Product Workbench 渲染，带有版本号或单纯的内容
+                            yield {
+                                "event": "workbench_update", 
+                                "data": json.dumps({
+                                    "report": node_output.get("report"),
+                                    "code_blocks": node_output.get("code_blocks", []),
+                                    "source": name
+                                })
+                            }
+                    elif name == "LangGraph":
+                        # Capture the final state from the overarching graph
+                        final_state = event["data"].get("output")
                     
             # Check if graph paused due to interrupt
             post_state = agent_graph.get_state(config)

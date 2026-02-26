@@ -267,6 +267,75 @@ const formatStructuralMarkers = (content: string): string => {
 
 ---
 
+## 修复 6：产物工作台 (Product Workbench) 排版错位问题
+
+**现象**：由于 CSS Grid 属性冲突（`h-full` 与 `min-h-0` 结合时的列坍塌），导致开启 Side-by-Side 视图（双栏版面）时，右侧工作栏被错误地挤压换行（Vertical Stacking）展示在聊天记录下方，而非在右侧横向分割屏幕。
+
+**修复方式**：
+
+#### 文件：`frontend/app/dashboard/[id]/page.tsx`
+
+**1) 将最外层主容器加宽并修复弹性布局**
+
+```diff
+- <main className="flex-1 min-h-0 px-8 max-w-7xl mx-auto w-full relative z-10 pb-4">
++ <main className="flex-1 w-full max-w-[1600px] mx-auto overflow-hidden px-4 md:px-8 pb-8 flex flex-col pt-2 relative z-10">
+```
+
+**2) 更新 Grid 列划分与滚动断点**
+将 `lg` 级断点（1024px）放宽到 `xl`（1280px）以容纳左右双栏大画布：
+
+```diff
+- <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
++ <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 md:gap-8 flex-1 min-h-[0]">
+```
+
+**3) 为两列表设置正确的伸缩比例**
+
+```diff
+- <div className={`${hasWorkbench ? 'lg:col-span-2' : 'lg:col-span-3'} flex flex-col h-full min-h-0 overflow-y-auto pr-2 scroll-smooth transition-all duration-500`}>
++ <div className={`${hasWorkbench ? 'xl:col-span-2' : 'xl:col-span-3'} flex flex-col h-full min-h-[0] overflow-y-auto pr-2 scroll-smooth transition-all duration-500`}>
+
+- <div className={`${hasWorkbench ? 'lg:col-span-2' : 'lg:col-span-1'} space-y-4 h-full overflow-y-auto pr-1 transition-all duration-500`}>
++ <div className={`${hasWorkbench ? 'xl:col-span-2' : 'xl:col-span-1'} space-y-4 h-full overflow-y-auto pr-1 transition-all duration-500`}>
+```
+
+---
+
+## 修复 7：多智能体拓扑图 (Topology Map) 在产物出现时消失
+
+**现象**：产物工作台 (Workbench) 渲染前，右侧显示“状态图”与“元数据”，但当智能体开始流式输出报告激活双栏视图时，状态图突然消失（被条件渲染覆盖）。
+
+**修复方式**：
+
+#### 文件：`frontend/app/dashboard/[id]/page.tsx`
+
+**1) 将状态面板从 `else` 分支中剥离并置顶**
+
+将包含 `<AgentTopologyMap />` 的 `<section>` 代码块向上移动，放在 `{hasWorkbench ?` 三元表达式判断的**正上方**，确保常驻显示。
+
+```tsx
+<div className={`${hasWorkbench ? 'xl:col-span-2' : 'xl:col-span-1'} ...`}>
+    
+    {/* Always Visible: Agent Activity Panel */}
+    <section className="p-6 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 ...">
+        {/* ... Topology Map ... */}
+    </section>
+
+    {/* Conditionally Visible: Workbench OR MetaData */}
+    {hasWorkbench ? (
+        <div className="Workbench-Container">...</div>
+    ) : (
+        <section className="MetaData-Container">...</section>
+    )}
+</div>
+```
+
+**2) 修复 JSX 碎片闭合标签错误**
+在重构三元表达式时，移除了无效的 `<>` 以及 `</>` 幽灵标签，确保 React Node 节点解析合法。
+
+---
+
 ## 快速检查清单
 
 在新设备部署后，按以下顺序验证：
@@ -278,4 +347,5 @@ const formatStructuralMarkers = (content: string): string => {
 - [ ] `frontend/.../page.tsx` 输入框用 `stream.status` 判断
 - [ ] `frontend/.../page.tsx` 有倒计时 + 自动继续逻辑
 - [ ] `frontend/.../page.tsx` 有 `formatStructuralMarkers` 预处理
+- [ ] `frontend/.../page.tsx` Flex 和 Grid 采用 `xl:col-span-2` 支持左右分栏双视口展示
 - [ ] 删除旧 `.db` 文件后重启服务

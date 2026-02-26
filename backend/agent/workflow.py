@@ -14,6 +14,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from .nodes.research import research_node
 from .nodes.generate import generate_node
 from .nodes.code_node import code_node
+from .nodes.local_execution_node import local_execution_node
 from .nodes.supervisor_node import supervisor_clarify_node, supervisor_review_node
 from .state import AgentState
 
@@ -47,15 +48,18 @@ async def executor_node(state: AgentState, config: RunnableConfig):
     
     # If this is a revision cycle, prepend feedback to the input
     original_input = state["input"]
+    task_spec = state.get("task_spec", "未提供明确的任务规格")
+    
+    # 强制整合原始需求与 TaskSpec 作为最高优先级上下文
+    enhanced_input = f"【原始用户需求】\n{original_input}\n\n【架构师设定的任务规格(TaskSpec)】\n{task_spec}"
+    
     if revision > 0 and review_feedback:
-        enhanced_input = f"{original_input}\n\n[监督智能体修改意见 (第{revision}轮)]:\n{review_feedback}"
-    else:
-        enhanced_input = original_input
+        enhanced_input += f"\n\n====================\n🚨【重要：前一轮评审打回原因与修改指示 (第{revision}轮)】🚨\n{review_feedback}\n\n⚠️ 你必须严格针对上述反馈进行修复，不能无视评审智能体的意见！\n===================="
         
     # Append any user messages from human_interaction_node to the instruction
     user_supplementary = "\n\n".join([m["content"] for m in state.get("messages", []) if m["role"] == "user"])
     if user_supplementary:
-        enhanced_input += f"\n\n[用户的进一步补充要求]:\n{user_supplementary}"
+        enhanced_input += f"\n\n【用户的实时干预与补充要求】:\n{user_supplementary}"
     
     # Temporarily override input for the sub-nodes
     modified_state = dict(state)
@@ -93,13 +97,15 @@ workflow = StateGraph(AgentState)
 workflow.add_node("supervisor_clarify", supervisor_clarify_node)
 workflow.add_node("human_interaction", human_interaction_node)
 workflow.add_node("executor", executor_node)
+workflow.add_node("local_execution", local_execution_node)
 workflow.add_node("supervisor_review", supervisor_review_node)
 
 # Wire the edges
 workflow.set_entry_point("supervisor_clarify")
 workflow.add_edge("supervisor_clarify", "human_interaction")
 workflow.add_edge("human_interaction", "executor")
-workflow.add_edge("executor", "supervisor_review")
+workflow.add_edge("executor", "local_execution")
+workflow.add_edge("local_execution", "supervisor_review")
 workflow.add_conditional_edges(
     "supervisor_review",
     review_decision,

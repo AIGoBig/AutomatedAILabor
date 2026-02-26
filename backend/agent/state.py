@@ -22,3 +22,7 @@ class AgentState(TypedDict):
     review_feedback: str  # Supervisor's review comments
     review_approved: bool  # Whether supervisor approved the result
     messages: list[dict]  # Multi-turn chat messages [{"role": "...", "content": "..."}]
+    
+    # Sandbox Execution fields
+    execution_result: str # stdout or success message
+    execution_error: str  # stderr if failed

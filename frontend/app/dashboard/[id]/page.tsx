@@ -9,6 +9,7 @@ import { apiGet, apiPost } from '@/lib/api';
 import { useAgentStream } from '@/lib/useAgentStream';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { AgentTopologyMap } from '@/components/ui/AgentTopologyMap';
 
 // Phase indicator icon mapping
 const phaseIcons: Record<string, any> = {
@@ -156,6 +157,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
 
         fetchAndStream();
         return () => stopStream();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // When stream completes, update local job state
@@ -279,6 +281,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const isStreaming = stream.status === 'processing' || stream.status === 'connecting';
     const isCompleted = job.status === 'completed' && job.result?.report;
     const isFailed = job.status === 'failed';
+    const hasWorkbench = (stream.workbenchVersions && stream.workbenchVersions.length > 0) || isCompleted;
 
     return (
         <div className="h-screen text-neutral-100 font-sans selection:bg-emerald-500/30 flex flex-col overflow-hidden">
@@ -318,15 +321,14 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
             </header>
 
             {/* Main Content Layout — fills remaining viewport */}
-            <main className="flex-1 min-h-0 px-8 max-w-7xl mx-auto w-full relative z-10 pb-4">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+            <main className="flex-1 w-full max-w-[1600px] mx-auto overflow-hidden px-4 md:px-8 pb-8 flex flex-col pt-2 relative z-10">
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 md:gap-8 flex-1 min-h-[0]">
                     {/* Left Column: Chat / Streaming View */}
-                    <div className="lg:col-span-3 flex flex-col h-full min-h-0">
+                    <div className={`${hasWorkbench ? 'xl:col-span-2' : 'xl:col-span-3'} flex flex-col h-full min-h-[0] overflow-y-auto pr-2 scroll-smooth transition-all duration-500`}>
 
                         {/* ===== STREAMING VIEW & HISTORY ===== */}
                         {(!isFailed || stream.messages.length > 0 || stream.logs.length > 0) && (
-                            <div className={`flex flex-col flex-1 min-h-0 ${isCompleted ? 'opacity-90' : ''}`}>
-                                {/* Phase Indicator */}
+                            <div className={`flex flex-col shrink-0 ${isCompleted ? 'mb-8 opacity-90' : 'flex-1 min-h-0'}`}>
                                 {stream.phaseLabel && !isCompleted && (
                                     <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl border transition-all duration-500 shrink-0 mb-3 ${phaseColors[stream.phase] || 'text-neutral-400 border-white/10 bg-white/5'}`}>
                                         {(() => {
@@ -343,9 +345,9 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                 )}
 
                                 {/* Live Streaming Content — chat container */}
-                                <div className="p-6 glass rounded-[2rem] shadow-2xl relative flex flex-col flex-1 min-h-0">
+                                <div className={`p-6 glass rounded-[2rem] shadow-2xl relative flex flex-col ${isCompleted ? '' : 'flex-1 min-h-0'}`}>
                                     {!isCompleted && (
-                                        <div className="absolute top-0 right-0 p-6">
+                                        <div className="absolute top-0 right-0 p-6 z-10">
                                             <button
                                                 onClick={handleCancel}
                                                 className="text-[10px] font-black text-red-400/50 hover:text-red-400 transition-colors uppercase tracking-widest flex items-center gap-2 px-3 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/10"
@@ -369,11 +371,11 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                         </div>
                                     </div>
 
-                                    {/* Chat Messages — scrollable area */}
+                                    {/* Chat Messages — scrollable area (only scrollable independently if not completed) */}
                                     <div
                                         ref={tokenRef}
-                                        className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-3 border-t border-white/5 pt-4"
-                                        style={{ willChange: 'scroll-position', contain: 'layout' }}
+                                        className={`${isCompleted ? '' : 'flex-1 min-h-0 overflow-y-auto pr-2'} space-y-3 border-t border-white/5 pt-4`}
+                                        style={{ willChange: isCompleted ? 'auto' : 'scroll-position', contain: isCompleted ? 'none' : 'layout' }}
                                     >
                                         {stream.messages && stream.messages.length > 0 && stream.messages.map((msg, idx) => {
                                             const isUser = msg.role === 'user';
@@ -510,28 +512,6 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             </div>
                         )}
 
-                        {/* FINAL COMPLETION REPORT VIEW */}
-                        {isCompleted && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <article className="prose prose-invert max-w-none glass p-10 md:p-16 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={getMarkdownComponents(job?.type)}
-                                    >
-                                        {formatStructuralMarkers(job.result.report)}
-                                    </ReactMarkdown>
-                                </article>
-
-                                {/* Bottom Action */}
-                                <div className="flex justify-center pt-8">
-                                    <button className="flex items-center gap-3 px-8 py-4 glass hover:bg-white/10 text-neutral-400 hover:text-white rounded-2xl transition-all text-sm font-bold shadow-xl">
-                                        <Download size={20} />
-                                        导出 PDF 报告 (即将推出)
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
                         {/* ERROR VIEW */}
                         {isFailed && (
                             <div className="flex flex-col items-center justify-center py-32 glass rounded-[2.5rem] border-red-500/20 text-center shadow-2xl">
@@ -554,46 +534,27 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                         )}
                     </div>
 
-                    {/* Right Column: Metadata Cards — fixed, no scroll */}
-                    <div className="space-y-4 h-full overflow-y-auto pr-1">
-                        <section className="p-6 glass rounded-3xl shadow-xl">
-                            <h4 className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-6 px-1">任务元数据</h4>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
-                                    <span className="text-xs text-neutral-500">架构模式</span>
-                                    <span className="text-xs font-bold text-white">Multi-Agent v2</span>
-                                </div>
-                                <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
-                                    <span className="text-xs text-neutral-500 font-bold">模型驱动</span>
-                                    <span className="text-xs font-bold text-emerald-400">{job.model || 'Gemini 3 Flash'}</span>
-                                </div>
-                                {(job.input_tokens || stream.finalResult?.input_tokens) && (
-                                    <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
-                                        <span className="text-xs text-neutral-500">输入能量</span>
-                                        <span className="text-xs font-bold text-white font-mono">{(job.input_tokens || stream.finalResult?.input_tokens || 0).toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {(job.output_tokens || stream.finalResult?.output_tokens) && (
-                                    <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
-                                        <span className="text-xs text-neutral-500">输出能量</span>
-                                        <span className="text-xs font-bold text-white font-mono">{(job.output_tokens || stream.finalResult?.output_tokens || 0).toLocaleString()}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
-                                    <span className="text-xs text-neutral-500 font-bold">能源消耗</span>
-                                    <span className="text-xs font-bold text-white">
-                                        {job.cost ? `${parseFloat(job.cost).toFixed(2)} CRD` : (job.amount || '5.00') + ' CRD'}
-                                    </span>
-                                </div>
-                            </div>
-                        </section>
+                    {/* Right Column: Workbench / Metadata Cards */}
+                    <div className={`${hasWorkbench ? 'xl:col-span-2' : 'xl:col-span-1'} space-y-4 h-full overflow-y-auto pr-1 transition-all duration-500`}>
 
-                        {/* Agent Activity Panel */}
+                        {/* Agent Activity Panel (Always Visible) */}
                         <section className="p-6 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-3xl border border-emerald-500/10 glass">
                             <div className="flex items-center gap-2 mb-4 text-emerald-400">
                                 <Activity size={14} />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest">智能体状态</h4>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest">智能体网络状态 (Agent Topology)</h4>
                             </div>
+
+                            {/* SVG Topology Map Integration */}
+                            <div className="mb-6">
+                                <AgentTopologyMap
+                                    phase={stream.phase}
+                                    isStreaming={isStreaming}
+                                    isCompleted={isCompleted}
+                                    jobType={job?.type}
+                                    revisionNumber={job?.revision_number || 0}
+                                />
+                            </div>
+
                             {isStreaming ? (
                                 <div className="space-y-3">
                                     <div className="flex items-center gap-2">
@@ -613,12 +574,95 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     等待连接...
                                 </p>
                             )}
+
                             {isCompleted && (
                                 <button className="mt-4 w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest border border-emerald-500/20">
                                     启动后续任务
                                 </button>
                             )}
                         </section>
+
+                        {hasWorkbench ? (
+                            <div className="h-full flex flex-col space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="flex items-center justify-between p-4 glass rounded-[2rem] border-emerald-500/30">
+                                    <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                        <Activity size={16} className="text-emerald-400" />
+                                        产物工作台 (Workbench)
+                                    </h3>
+                                    <div className="flex gap-2">
+                                        <span className="text-xs px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg">迭代中 / Iterative</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 min-h-0 overflow-y-auto glass-emerald border border-emerald-500/20 rounded-[2.5rem] p-6 md:p-10 shadow-[0_20px_60px_-15px_rgba(16,185,129,0.2)]">
+                                    {stream.workbenchVersions && stream.workbenchVersions.length > 0 ? (
+                                        <div className="space-y-12">
+                                            {stream.workbenchVersions.map((v, idx) => (
+                                                <div key={idx} className="relative">
+                                                    <div className="absolute -left-6 top-0 w-1 h-full bg-neutral-800 rounded-full" />
+                                                    <div className="absolute -left-[26px] top-6 w-3 h-3 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                                    <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-6 px-4">
+                                                        Version {v.version} ({v.source})
+                                                    </h4>
+                                                    <article className="prose prose-invert max-w-none text-sm px-4">
+                                                        <ReactMarkdown
+                                                            remarkPlugins={[remarkGfm]}
+                                                            components={getMarkdownComponents(job?.type)}
+                                                        >
+                                                            {formatStructuralMarkers(v.report)}
+                                                        </ReactMarkdown>
+                                                    </article>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-8">
+                                            <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-6">Final Release</h4>
+                                            <article className="prose prose-invert max-w-none text-sm">
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    components={getMarkdownComponents(job?.type)}
+                                                >
+                                                    {formatStructuralMarkers(job?.result?.report || stream.finalResult?.report || "")}
+                                                </ReactMarkdown>
+                                            </article>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <section className="p-6 glass rounded-3xl shadow-xl">
+                                <h4 className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-6 px-1">任务元数据</h4>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
+                                        <span className="text-xs text-neutral-500">架构模式</span>
+                                        <span className="text-xs font-bold text-white">Multi-Agent v2</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
+                                        <span className="text-xs text-neutral-500 font-bold">模型驱动</span>
+                                        <span className="text-xs font-bold text-emerald-400">{job.model || 'Gemini 3 Flash'}</span>
+                                    </div>
+                                    {(job.input_tokens || stream.finalResult?.input_tokens) && (
+                                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
+                                            <span className="text-xs text-neutral-500">输入能量</span>
+                                            <span className="text-xs font-bold text-white font-mono">{(job.input_tokens || stream.finalResult?.input_tokens || 0).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {(job.output_tokens || stream.finalResult?.output_tokens) && (
+                                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
+                                            <span className="text-xs text-neutral-500">输出能量</span>
+                                            <span className="text-xs font-bold text-white font-mono">{(job.output_tokens || stream.finalResult?.output_tokens || 0).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-white/5">
+                                        <span className="text-xs text-neutral-500 font-bold">能源消耗</span>
+                                        <span className="text-xs font-bold text-white">
+                                            {job.cost ? `${parseFloat(job.cost).toFixed(2)} CRD` : (job.amount || '5.00') + ' CRD'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
                     </div>
                 </div>
             </main>
