@@ -10,14 +10,35 @@ Architecture:
                                               END        → executor (loop)
 """
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import interrupt
 from .nodes.research import research_node
 from .nodes.generate import generate_node
 from .nodes.code_node import code_node
 from .nodes.supervisor_node import supervisor_clarify_node, supervisor_review_node
 from .state import AgentState
 
-
 from langchain_core.runnables import RunnableConfig
+
+def human_interaction_node(state: AgentState):
+    """
+    Node that yields control back to the user to get feedback or approval before execution.
+    By calling interrupt(), LangGraph pauses state here until resumed by the backend API.
+    """
+    feedback = interrupt("Ready for user feedback")
+    
+    # When resumed with feedback:
+    if feedback and isinstance(feedback, str):
+        # We append the user feedback to the state
+        state["messages"].append({"role": "user", "content": feedback})
+        # If user gives feedback, we might want to attach it to the task spec or input
+        state["task_spec"] += f"\n\n[User Supplementary Request]:\n{feedback}"
+        state["logs"].append(f"👨‍💻 收到用户实时反馈协助，调整执行策略中...")
+    else:
+        state["logs"].append("👨‍💻 用户直接确认通过，进入执行状态...")
+
+    return {"task_spec": state["task_spec"], "messages": state["messages"], "logs": state["logs"]}
+
 
 async def executor_node(state: AgentState, config: RunnableConfig):
     """
@@ -34,6 +55,11 @@ async def executor_node(state: AgentState, config: RunnableConfig):
         enhanced_input = f"{original_input}\n\n[监督智能体修改意见 (第{revision}轮)]:\n{review_feedback}"
     else:
         enhanced_input = original_input
+        
+    # Append any user messages from human_interaction_node to the instruction
+    user_supplementary = "\n\n".join([m["content"] for m in state.get("messages", []) if m["role"] == "user"])
+    if user_supplementary:
+        enhanced_input += f"\n\n[用户的进一步补充要求]:\n{user_supplementary}"
     
     # Temporarily override input for the sub-nodes
     modified_state = dict(state)
@@ -69,12 +95,14 @@ workflow = StateGraph(AgentState)
 
 # Add nodes
 workflow.add_node("supervisor_clarify", supervisor_clarify_node)
+workflow.add_node("human_interaction", human_interaction_node)
 workflow.add_node("executor", executor_node)
 workflow.add_node("supervisor_review", supervisor_review_node)
 
 # Wire the edges
 workflow.set_entry_point("supervisor_clarify")
-workflow.add_edge("supervisor_clarify", "executor")
+workflow.add_edge("supervisor_clarify", "human_interaction")
+workflow.add_edge("human_interaction", "executor")
 workflow.add_edge("executor", "supervisor_review")
 workflow.add_conditional_edges(
     "supervisor_review",
@@ -85,8 +113,9 @@ workflow.add_conditional_edges(
     }
 )
 
-# Compile the graph
-agent_graph = workflow.compile()
+# Compile the graph with memory checkpointer
+memory = MemorySaver()
+agent_graph = workflow.compile(checkpointer=memory)
 
 
 def run_agent(input_query: str, model_id: str = "gemini-1.5-flash", task_type: str = "research"):

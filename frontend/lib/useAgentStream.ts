@@ -2,12 +2,20 @@
 import { useState, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 
+export interface AgentMessage {
+    id: string;
+    role: 'supervisor' | 'executor' | 'user';
+    phase: string;
+    phaseLabel: string;
+    content: string;
+}
+
 export interface AgentStreamState {
     phase: string;
     phaseLabel: string;
-    tokens: string;
+    messages: AgentMessage[];
     logs: string[];
-    status: 'idle' | 'connecting' | 'processing' | 'completed' | 'failed';
+    status: 'idle' | 'connecting' | 'processing' | 'completed' | 'failed' | 'awaiting_input';
     finalResult: any;
     error: string | null;
 }
@@ -15,7 +23,7 @@ export interface AgentStreamState {
 const initialState: AgentStreamState = {
     phase: '',
     phaseLabel: '',
-    tokens: '',
+    messages: [],
     logs: [],
     status: 'idle',
     finalResult: null,
@@ -59,26 +67,56 @@ export function useAgentStream() {
 
                     if (!dataStr) return;
 
-                    // Route based on event type
                     if (eventType === 'phase') {
                         try {
                             const parsed = JSON.parse(dataStr);
+                            const newRole = parsed.phase === 'execute' ? 'executor' : 'supervisor';
+
                             setState(prev => ({
                                 ...prev,
                                 phase: parsed.phase,
                                 phaseLabel: parsed.label,
                                 status: 'processing',
+                                messages: [
+                                    ...prev.messages,
+                                    {
+                                        id: Math.random().toString(36).substring(7),
+                                        role: newRole,
+                                        phase: parsed.phase,
+                                        phaseLabel: parsed.label,
+                                        content: ''
+                                    }
+                                ]
                             }));
                         } catch { }
                     } else if (eventType === 'token') {
                         try {
                             const parsed = JSON.parse(dataStr);
                             if (parsed.text) {
-                                setState(prev => ({
-                                    ...prev,
-                                    tokens: prev.tokens + parsed.text,
-                                    status: 'processing',
-                                }));
+                                setState(prev => {
+                                    const newMessages = [...prev.messages];
+                                    if (newMessages.length === 0) {
+                                        // Fallback if token arrives before phase
+                                        newMessages.push({
+                                            id: Math.random().toString(36).substring(7),
+                                            role: 'executor',
+                                            phase: prev.phase,
+                                            phaseLabel: prev.phaseLabel,
+                                            content: parsed.text
+                                        });
+                                    } else {
+                                        const lastIdx = newMessages.length - 1;
+                                        newMessages[lastIdx] = {
+                                            ...newMessages[lastIdx],
+                                            content: newMessages[lastIdx].content + parsed.text
+                                        };
+                                    }
+                                    return {
+                                        ...prev,
+                                        messages: newMessages,
+                                        status: 'processing',
+                                    };
+                                });
                             }
                         } catch { }
                     } else if (eventType === 'status') {
@@ -87,6 +125,15 @@ export function useAgentStream() {
                             setState(prev => ({
                                 ...prev,
                                 status: parsed.status as any,
+                            }));
+                        } catch { }
+                    } else if (eventType === 'interrupt') {
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            setState(prev => ({
+                                ...prev,
+                                status: 'awaiting_input',
+                                logs: [...prev.logs, "等待您的干预与确认..."]
                             }));
                         } catch { }
                     } else if (eventType === 'log') {

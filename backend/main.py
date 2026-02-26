@@ -225,41 +225,57 @@ async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db
             yield {"event": "end", "data": job.result or "{}"}
         return EventSourceResponse(mock_stream_finished())
 
-    # Mark as processing
-    job.status = "processing"
-    db.commit()
+    # Mark as processing if new
+    if job.status not in ["processing", "awaiting_input"]:
+        job.status = "processing"
+        db.commit()
 
     async def event_generator():
-        # Initialize AgentState with supervisor fields
-        state: AgentState = {
-            "input": job.goal,
-            "search_results": [],
-            "report": "",
-            "revision_number": 0,
-            "max_revisions": 3,
-            "model": job.model or "gemini-1.5-flash",
-            "logs": ["初始化多智能体流水线 (SSE Streaming)..."],
-            "task_type": job.type,
-            "code_blocks": [],
-            "file_structure": [],
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "cost": 0.0,
-            # Supervisor fields
-            "phase": "clarify",
-            "task_spec": "",
-            "review_feedback": "",
-            "review_approved": False,
-            "messages": []
-        }
+        config = {"configurable": {"thread_id": job_id}}
         
-        yield {"event": "status", "data": json.dumps({"status": "processing"})}
-        yield {"event": "log", "data": "Multi-Agent Pipeline Connected. Supervisor taking over..."}
+        # Check current state from checkpoint memory
+        current_state = agent_graph.get_state(config)
+        
+        # If there's an existing state, we are resuming; otherwise start fresh
+        is_resuming = current_state.created_at is not None
+        
+        state: AgentState = None
+        if not is_resuming:
+            # Initialize fresh AgentState
+            state = {
+                "input": job.goal,
+                "search_results": [],
+                "report": "",
+                "revision_number": 0,
+                "max_revisions": 3,
+                "model": job.model or "gemini-1.5-flash",
+                "logs": ["初始化多智能体流水线 (SSE Streaming)..."],
+                "task_type": job.type,
+                "code_blocks": [],
+                "file_structure": [],
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost": 0.0,
+                # Supervisor fields
+                "phase": "clarify",
+                "task_spec": "",
+                "review_feedback": "",
+                "review_approved": False,
+                "messages": []
+            }
+            
+            yield {"event": "status", "data": json.dumps({"status": "processing"})}
+            yield {"event": "log", "data": "Multi-Agent Pipeline Connected. Supervisor taking over..."}
+        else:
+            yield {"event": "status", "data": json.dumps({"status": "processing"})}
+            yield {"event": "log", "data": "Resuming Multi-Agent Pipeline from checkpoint..."}
 
         try:
             final_state = None
+            input_data = None if is_resuming else state
+            
             # Intercept real-time events from LangGraph
-            async for event in agent_graph.astream_events(state, version="v2"):
+            async for event in agent_graph.astream_events(input_data, config=config, version="v2"):
                 # Handle client disconnect
                 if await request.is_disconnected():
                     print(f"Client disconnected during job {job_id}")
@@ -297,6 +313,23 @@ async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db
                 elif kind == "on_chain_end" and name == "LangGraph":
                     # Capture the final state from the overarching graph
                     final_state = event["data"].get("output")
+                    
+            # Check if graph paused due to interrupt
+            post_state = agent_graph.get_state(config)
+            
+            if post_state.next:
+                 # Graph is paused at `human_interaction_node`
+                 db_bg = SessionLocal()
+                 try:
+                     update_job = db_bg.query(Job).filter(Job.id == job_id).first()
+                     if update_job:
+                         update_job.status = "awaiting_input"
+                         db_bg.commit()
+                 finally:
+                     db_bg.close()
+                 
+                 yield {"event": "interrupt", "data": json.dumps({"message": "Ready for user feedback"})}
+                 return
                     
             if final_state:
                 # Execution finished successfully
@@ -341,23 +374,71 @@ def get_job_status(job_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Job not found")
     
     # Parse result back to JSON if it exists
-    result_data = None
+    result_dict = None
     if job.result:
         try:
-            result_data = json.loads(job.result)
+            result_dict = json.loads(job.result)
         except:
-            result_data = {"raw": job.result}
+            result_dict = {"raw": job.result}
             
     return {
         "job_id": job.id,
         "status": job.status,
-        "result": result_data,
         "type": job.type,
         "goal": job.goal,
+        "result": result_dict,
         "input_tokens": job.input_tokens,
         "output_tokens": job.output_tokens,
-        "cost": job.cost
+        "cost": job.cost,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at
     }
+
+class ContinueRequestModel(BaseModel):
+    feedback: str
+
+@app.post("/api/jobs/{job_id}/continue")
+def continue_job(job_id: str, req: ContinueRequestModel, db: Session = Depends(get_db)):
+    """
+    Endpoint to receive human feedback and resume the interrupted LangGraph execution.
+    """
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if job.status != "awaiting_input":
+        raise HTTPException(status_code=400, detail="Job is not awaiting input")
+        
+    config = {"configurable": {"thread_id": job_id}}
+    state = agent_graph.get_state(config)
+    
+    if not state.next:
+        raise HTTPException(status_code=400, detail="Graph is not currently interrupted")
+        
+    # Inject the user's feedback into the graph at the human_interaction node
+    # Since we called `interrupt()`, update_state resuming it requires the value 
+    # as the node's output override essentially, or just sending standard `str` value.
+    try:
+        from langgraph.types import Command
+        
+        # When resuming an interrupt, we can pass command to resume
+        # Update the state to actually resume the graph.
+        # In newer langgraph (0.2.x+)/or 0.1 where Command is used:
+        # Actually in MemorySaver, we just provide the command to resume
+        agent_graph.update_state(config, Command(resume=req.feedback), as_node="human_interaction")
+        
+    except Exception as e:
+        print(f"Error updating state: {e}")
+        # fallback for older langgraph methods 
+        try:
+            agent_graph.update_state(config, req.feedback, as_node="human_interaction")
+        except Exception as fallback_e:
+             raise HTTPException(status_code=500, detail=f"Failed to resume graph: {fallback_e}")
+             
+    job.status = "processing"
+    db.commit()
+    
+    return {"status": "success", "message": "Graph resumed"}
 
 @app.get("/api/jobs")
 def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

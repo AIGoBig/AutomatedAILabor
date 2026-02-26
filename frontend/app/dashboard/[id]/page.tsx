@@ -23,6 +23,57 @@ const phaseColors: Record<string, string> = {
     review: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
 };
 
+// Extracted Markdown components wrapper for reuse in streaming and final views
+const getMarkdownComponents = (jobType?: string) => ({
+    code({ node, inline, className, children, ...props }: any) {
+        const match = /language-(\w+)/.exec(className || '');
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const [copied, setCopied] = useState(false);
+
+        const handleCopy = () => {
+            navigator.clipboard.writeText(String(children));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        };
+
+        return !inline && match ? (
+            <div className="relative group my-8 rounded-xl overflow-hidden border border-white/5 bg-black/40">
+                <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/5">
+                    <div className="flex items-center gap-2 text-xs text-neutral-400">
+                        <FileCode size={14} />
+                        <span>{match[1].toUpperCase()}</span>
+                    </div>
+                    <button
+                        onClick={handleCopy}
+                        className="text-neutral-500 hover:text-white transition-colors p-1 hover:bg-white/5 rounded"
+                    >
+                        {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    </button>
+                </div>
+                <SyntaxHighlighter
+                    style={vscDarkPlus as any}
+                    language={match[1]}
+                    PreTag="div"
+                    className="!bg-transparent !m-0 !p-4 !text-sm leading-relaxed"
+                    {...props}
+                >
+                    {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+            </div>
+        ) : (
+            <code className={`${className} bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-emerald-300`} {...props}>
+                {children}
+            </code>
+        );
+    },
+    h1: ({ children }: any) => <h1 className="text-3xl font-black text-white mb-8 tracking-tighter">{children}</h1>,
+    h2: ({ children }: any) => <h2 className={`text-xl font-bold text-white mt-12 mb-6 border-l-4 pl-4 ${jobType === 'code' ? 'border-purple-500' : 'border-emerald-500'}`}>{children}</h2>,
+    p: ({ children }: any) => <p className="mb-6 text-neutral-400 text-base leading-relaxed">{children}</p>,
+    ul: ({ children }: any) => <ul className="space-y-2 mb-6 list-disc list-outside ml-6">{children}</ul>,
+    ol: ({ children }: any) => <ol className="space-y-2 mb-6 list-decimal list-outside ml-6">{children}</ol>,
+    li: ({ children }: any) => <li className={`text-neutral-400 pl-1 ${jobType === 'code' ? 'marker:text-purple-500' : 'marker:text-emerald-500'}`}>{children}</li>
+});
+
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
     const { id } = use(params) as { id: string };
@@ -31,13 +82,15 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [error, setError] = useState('');
     const [streamStarted, setStreamStarted] = useState(false);
     const tokenRef = useRef<HTMLDivElement>(null);
+    const [userInput, setUserInput] = useState("");
+    const [isSendingFeedback, setIsSendingFeedback] = useState(false);
 
     // Auto-scroll token display
     useEffect(() => {
         if (tokenRef.current) {
             tokenRef.current.scrollTop = tokenRef.current.scrollHeight;
         }
-    }, [stream.tokens]);
+    }, [stream.messages]);
 
     // Fetch initial job data, then start streaming if queued/processing
     useEffect(() => {
@@ -112,6 +165,26 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         }
     };
 
+    const handleSendFeedback = async () => {
+        if (!userInput.trim()) return;
+        setIsSendingFeedback(true);
+        const token = localStorage.getItem('token');
+        try {
+            const res = await apiPost(`/api/jobs/${id}/continue`, { feedback: userInput }, token);
+            if (res.ok) {
+                setUserInput("");
+                // The stream is technically still open, but the backend changed status.
+                // The backend graph resumes, and we'll receive new tokens/phases via the active SSE.
+            } else {
+                console.error("Failed to send feedback");
+            }
+        } catch (err) {
+            console.error('Send feedback failed:', err);
+        } finally {
+            setIsSendingFeedback(false);
+        }
+    };
+
     if (error) return (
         <div className="min-h-screen bg-neutral-950 text-red-500 flex items-center justify-center">
             Error: {error}
@@ -168,94 +241,12 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     {/* Left Column: Result or Streaming View */}
                     <div className="lg:col-span-3">
-                        {isCompleted ? (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <article className="prose prose-invert max-w-none glass p-10 md:p-16 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            code({ node, inline, className, children, ...props }: any) {
-                                                const match = /language-(\w+)/.exec(className || '');
-                                                const [copied, setCopied] = useState(false);
 
-                                                const handleCopy = () => {
-                                                    navigator.clipboard.writeText(String(children));
-                                                    setCopied(true);
-                                                    setTimeout(() => setCopied(false), 2000);
-                                                };
-
-                                                return !inline && match ? (
-                                                    <div className="relative group my-8 rounded-xl overflow-hidden border border-white/5 bg-black/40">
-                                                        <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/5">
-                                                            <div className="flex items-center gap-2 text-xs text-neutral-400">
-                                                                <FileCode size={14} />
-                                                                <span>{match[1].toUpperCase()}</span>
-                                                            </div>
-                                                            <button
-                                                                onClick={handleCopy}
-                                                                className="text-neutral-500 hover:text-white transition-colors p-1 hover:bg-white/5 rounded"
-                                                            >
-                                                                {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                                                            </button>
-                                                        </div>
-                                                        <SyntaxHighlighter
-                                                            style={vscDarkPlus}
-                                                            language={match[1]}
-                                                            PreTag="div"
-                                                            className="!bg-transparent !m-0 !p-4 !text-sm leading-relaxed"
-                                                            {...props}
-                                                        >
-                                                            {String(children).replace(/\n$/, '')}
-                                                        </SyntaxHighlighter>
-                                                    </div>
-                                                ) : (
-                                                    <code className={`${className} bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-emerald-300`} {...props}>
-                                                        {children}
-                                                    </code>
-                                                );
-                                            },
-                                            h1: ({ children }) => <h1 className="text-3xl font-black text-white mb-8 tracking-tighter">{children}</h1>,
-                                            h2: ({ children }) => <h2 className={`text-xl font-bold text-white mt-12 mb-6 border-l-4 pl-4 ${job?.type === 'code' ? 'border-purple-500' : 'border-emerald-500'}`}>{children}</h2>,
-                                            p: ({ children }) => <p className="mb-6 text-neutral-400 text-base leading-relaxed">{children}</p>,
-                                            ul: ({ children }) => <ul className="space-y-3 mb-8 list-none pr-4">{children}</ul>,
-                                            li: ({ children }) => <li className={`flex gap-3 text-neutral-400 before:content-['•'] before:font-bold ${job?.type === 'code' ? 'before:text-purple-500' : 'before:text-emerald-500'}`}>{children}</li>
-                                        }}
-                                    >
-                                        {job.result.report}
-                                    </ReactMarkdown>
-                                </article>
-
-                                {/* Bottom Action */}
-                                <div className="flex justify-center pt-8">
-                                    <button className="flex items-center gap-3 px-8 py-4 glass hover:bg-white/10 text-neutral-400 hover:text-white rounded-2xl transition-all text-sm font-bold shadow-xl">
-                                        <Download size={20} />
-                                        导出 PDF 报告 (即将推出)
-                                    </button>
-                                </div>
-                            </div>
-                        ) : isFailed ? (
-                            <div className="flex flex-col items-center justify-center py-32 glass rounded-[2.5rem] border-red-500/20 text-center shadow-2xl">
-                                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 text-red-400">
-                                    <AlertTriangle size={40} />
-                                </div>
-                                <h3 className="text-2xl font-bold text-white mb-2 underline decoration-red-500/50 underline-offset-8">部署失败</h3>
-                                <p className="text-neutral-400 max-w-md mx-auto mb-8">
-                                    {stream.error || '代理在执行过程中遇到了协议错误。'}
-                                </p>
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={handleRetry}
-                                        className="px-8 py-3 bg-emerald-500 text-black rounded-xl transition-colors font-bold uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:bg-emerald-400"
-                                    >
-                                        立即重试任务
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            /* ===== STREAMING VIEW ===== */
-                            <div className="space-y-6">
+                        {/* ===== STREAMING VIEW & HISTORY ===== */}
+                        {(!isFailed || stream.messages.length > 0 || stream.logs.length > 0) && (
+                            <div className={`space-y-6 ${isCompleted ? 'mb-12 opacity-80' : ''}`}>
                                 {/* Phase Indicator */}
-                                {stream.phaseLabel && (
+                                {stream.phaseLabel && !isCompleted && (
                                     <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl border transition-all duration-500 ${phaseColors[stream.phase] || 'text-neutral-400 border-white/10 bg-white/5'}`}>
                                         {(() => {
                                             const Icon = phaseIcons[stream.phase] || Terminal;
@@ -271,38 +262,96 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                 )}
 
                                 {/* Live Streaming Content */}
-                                <div className="p-8 glass rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-6">
-                                        <button
-                                            onClick={handleCancel}
-                                            className="text-[10px] font-black text-red-400/50 hover:text-red-400 transition-colors uppercase tracking-widest flex items-center gap-2 px-3 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/10"
-                                        >
-                                            <XCircle size={12} />
-                                            终止
-                                        </button>
-                                    </div>
+                                <div className="p-8 glass rounded-[2.5rem] shadow-2xl relative flex flex-col h-[75vh] min-h-[600px] max-h-[900px]">
+                                    {!isCompleted && (
+                                        <div className="absolute top-0 right-0 p-6">
+                                            <button
+                                                onClick={handleCancel}
+                                                className="text-[10px] font-black text-red-400/50 hover:text-red-400 transition-colors uppercase tracking-widest flex items-center gap-2 px-3 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/10"
+                                            >
+                                                <XCircle size={12} />
+                                                终止
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {/* Streaming Title */}
                                     <div className="flex items-center gap-6 mb-8">
-                                        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+                                        <div className={`w-12 h-12 border-4 rounded-full ${isCompleted ? 'border-emerald-500 bg-emerald-500/20 flex items-center justify-center' : 'border-emerald-500/20 border-t-emerald-500 animate-spin'}`}>
+                                            {isCompleted && <Check className="text-emerald-400 w-6 h-6" />}
+                                        </div>
                                         <div>
-                                            <h3 className="text-xl font-bold text-white tracking-tight">多智能体协同工作中</h3>
+                                            <h3 className="text-xl font-bold text-white tracking-tight">
+                                                {isCompleted ? '多智能体协作完成' : '多智能体协同工作中'}
+                                            </h3>
                                             <p className="text-neutral-500 text-sm font-medium">监督 → 执行 → 评审 → 交付</p>
                                         </div>
                                     </div>
 
-                                    {/* Token Stream Display */}
-                                    {stream.tokens && (
+                                    {/* Chat Messages Stream Display */}
+                                    {stream.messages && stream.messages.length > 0 && (
                                         <div
                                             ref={tokenRef}
-                                            className="prose prose-invert prose-sm max-w-none max-h-[60vh] overflow-y-auto pr-4 mb-6 border-t border-white/5 pt-6"
+                                            className="space-y-6 mb-6 border-t border-white/5 pt-6 pr-4 h-[50vh] overflow-y-auto scroll-smooth"
                                         >
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                {stream.tokens}
-                                            </ReactMarkdown>
-                                            {isStreaming && (
-                                                <span className="inline-block w-2 h-5 bg-emerald-400 animate-pulse ml-1 align-text-bottom" />
-                                            )}
+                                            {stream.messages.map((msg, idx) => {
+                                                const isUser = msg.role === 'user';
+
+                                                if (isUser) {
+                                                    return (
+                                                        <div key={msg.id} className="flex gap-4 p-5 rounded-2xl border bg-white/5 border-white/10 justify-end ml-12">
+                                                            <div className="flex-1 overflow-hidden text-right">
+                                                                <div className="flex items-center justify-end gap-2 mb-2">
+                                                                    <span className="text-[10px] font-bold tracking-widest uppercase text-neutral-500 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                                                                        USER
+                                                                    </span>
+                                                                    <span className="text-sm font-bold tracking-tight text-white">
+                                                                        You
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                                                                    {msg.content}
+                                                                </div>
+                                                            </div>
+                                                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg bg-white/10 text-white">
+                                                                <Terminal size={14} />
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                }
+
+                                                return (
+                                                    <div key={msg.id} className={`flex gap-4 p-5 rounded-2xl border mr-12 ${msg.role === 'supervisor' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                                                        {/* Avatar */}
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'supervisor' ? 'bg-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]'}`}>
+                                                            {msg.role === 'supervisor' ? <Bot size={16} /> : <Cpu size={16} />}
+                                                        </div>
+
+                                                        {/* Content */}
+                                                        <div className="flex-1 overflow-hidden">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className={`text-sm font-bold tracking-tight ${msg.role === 'supervisor' ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                                                    {msg.role === 'supervisor' ? '监督智能体' : '执行智能体'}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold tracking-widest uppercase text-neutral-500 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                                                                    {msg.phaseLabel}
+                                                                </span>
+                                                            </div>
+                                                            <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10">
+                                                                <ReactMarkdown
+                                                                    remarkPlugins={[remarkGfm]}
+                                                                    components={getMarkdownComponents(job?.type)}
+                                                                >
+                                                                    {msg.content}
+                                                                </ReactMarkdown>
+                                                                {isStreaming && idx === stream.messages.length - 1 && (
+                                                                    <span className={`inline-block w-2 h-4 animate-pulse ml-1 align-middle ${msg.role === 'supervisor' ? 'bg-amber-500/50' : 'bg-emerald-500/50'}`} />
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
                                     )}
 
@@ -321,16 +370,83 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     )}
 
                                     {/* Idle / Connecting state */}
-                                    {!stream.tokens && stream.logs.length === 0 && (
+                                    {(!stream.messages || stream.messages.length === 0) && stream.logs.length === 0 && (
                                         <div className="text-sm text-neutral-600 italic">正在建立与智能体集群的连接...</div>
                                     )}
+
+                                    {/* User Input Area for Human In The Loop */}
+                                    {(!isCompleted && !isFailed) && (
+                                        <div className="mt-6 pt-6 border-t border-white/5 flex gap-3">
+                                            <input
+                                                type="text"
+                                                value={userInput}
+                                                onChange={(e) => setUserInput(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSendFeedback();
+                                                }}
+                                                disabled={isSendingFeedback || job?.status !== 'awaiting_input'}
+                                                placeholder={job?.status === 'awaiting_input' ? "请输入您的干预意见或补充信息..." : "请等待智能体分析完毕以提供反馈..."}
+                                                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                                            />
+                                            <button
+                                                onClick={handleSendFeedback}
+                                                disabled={isSendingFeedback || !userInput.trim() || job?.status !== 'awaiting_input'}
+                                                className="px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-emerald-500/30 transition-colors flex items-center justify-center shrink-0 min-w-[100px]"
+                                            >
+                                                {isSendingFeedback ? <div className="w-5 h-5 border-2 border-emerald-400/20 border-t-emerald-400 rounded-full animate-spin"></div> : "发送指令"}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* FINAL COMPLETION REPORT VIEW */}
+                        {isCompleted && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                <article className="prose prose-invert max-w-none glass p-10 md:p-16 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={getMarkdownComponents(job?.type)}
+                                    >
+                                        {job.result.report}
+                                    </ReactMarkdown>
+                                </article>
+
+                                {/* Bottom Action */}
+                                <div className="flex justify-center pt-8">
+                                    <button className="flex items-center gap-3 px-8 py-4 glass hover:bg-white/10 text-neutral-400 hover:text-white rounded-2xl transition-all text-sm font-bold shadow-xl">
+                                        <Download size={20} />
+                                        导出 PDF 报告 (即将推出)
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ERROR VIEW */}
+                        {isFailed && (
+                            <div className="flex flex-col items-center justify-center py-32 glass rounded-[2.5rem] border-red-500/20 text-center shadow-2xl">
+                                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 text-red-400">
+                                    <AlertTriangle size={40} />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white mb-2 underline decoration-red-500/50 underline-offset-8">部署失败</h3>
+                                <p className="text-neutral-400 max-w-md mx-auto mb-8">
+                                    {stream.error || '代理在执行过程中遇到了协议错误。'}
+                                </p>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={handleRetry}
+                                        className="px-8 py-3 bg-emerald-500 text-black rounded-xl transition-colors font-bold uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:bg-emerald-400"
+                                    >
+                                        立即重试任务
+                                    </button>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Right Column: Metadata Cards */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 sticky top-8">
                         <section className="p-6 glass rounded-3xl shadow-xl">
                             <h4 className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-6 px-1">任务元数据</h4>
                             <div className="space-y-4">
