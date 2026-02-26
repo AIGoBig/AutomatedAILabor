@@ -349,3 +349,19 @@ const formatStructuralMarkers = (content: string): string => {
 - [ ] `frontend/.../page.tsx` 有 `formatStructuralMarkers` 预处理
 - [ ] `frontend/.../page.tsx` Flex 和 Grid 采用 `xl:col-span-2` 支持左右分栏双视口展示
 - [ ] 删除旧 `.db` 文件后重启服务
+
+---
+
+## 附录：沙盒机制测试规范 (Local Execution Sandbox)
+
+**触发条件：**
+`local_execution_node.py` 沙盒节点的执行取决于两个必要条件：
+1. 主入口选择了 **"编程任务 (code)"** 作为 `task_type`。
+2. Executor 代理在返回的报告中生成了带有 ` ```python ` 或者 ` ```py ` 标签的代码块。
+
+**预设测试用例推荐：**
+如果希望观测沙盒抓取 `stdout / stderr` 的完整联调环节，可以在前端起始页输入或点击以下自带的推荐问题：
+1. `编写一个直接运行的 Python 脚本，计算并打印前20个斐波那契数列`
+2. `用 Python 编写一个获取并验证特定网页连通性的脚本`
+
+> 若任务类型选择为“深度研究(research)”，系统出于安全与资源控制考量，会跳过 Python 沙盒环境试运行环节，直接进行 Supervisor 交叉审核。

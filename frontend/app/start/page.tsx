@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight } from 'lucide-react';
 import { apiPost } from '@/lib/api';
 
-// Array of rotating examples
 const promptExamples = [
     { type: 'research', goal: '全球 AI 行业 2026 年度预测报告' },
     { type: 'research', goal: '人形机器人 2026 商业化落地路线图' },
+    { type: 'code', goal: '编写一个直接运行的 Python 脚本，计算并打印前20个斐波那契数列' },
+    { type: 'code', goal: '用 Python 编写一个获取并验证当前网页连通性的脚本' },
     { type: 'code', goal: '用 React + Tailwind 编写一个精美的个人主页组件' },
-    { type: 'code', goal: '使用 Python 绘制分形几何图形并输出为动画' },
     { type: 'code', goal: '构建一个基于 FastAPI 的 JWT 权限认证系统' },
 ];
 
