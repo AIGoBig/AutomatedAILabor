@@ -336,6 +336,47 @@ const formatStructuralMarkers = (content: string): string => {
 
 ---
 
+## 修复 8：启动脚本端口残留冲突 (Port Binding & Zombie Processes)
+
+**现象**：由于旧的 Node.js 或 Python 后台进程未完全退出，导致 `Address already in use` 占用 8000 端口，前端 Next.js 服务也被迫挂载至 3001 端口导致无法通讯。
+
+**修复方式**：
+
+#### 文件：`start.sh`
+
+改写了守护式端口清理命令，利用管道确保杀掉所有的阻塞进程：
+
+```bash
+# Automatically clear out zombie processes occupying the API ports
+lsof -ti:8000 | xargs kill -9 2>/dev/null
+lsof -ti:3000 | xargs kill -9 2>/dev/null
+lsof -ti:3002 | xargs kill -9 2>/dev/null
+pkill -f dev_manager.py 2>/dev/null
+...
+```
+
+---
+
+## 扩展 6：增加“任务转 Workflow”技能选项占位符
+
+**需求**：在前端起始类型页，新增一项用于标识“任务 -> Workflow”流转支持的 UI。
+
+**加入方式**：
+
+#### 文件：`frontend/app/start/page.tsx`
+
+引入了 `Workflow` React Lucide 图标，并在界面的第一部分 `SetStep == 1` 下方追加了橙色主题的 Action Tile 按钮。
+
+```tsx
+<button onClick={() => setFormData({ ...formData, type: 'workflow' })} ...>
+    <Workflow size={28} />
+    <h3>任务转 Workflow</h3>
+    <p>将单次对话任务沉淀为标准化的工作流引擎节点 (即将上线)</p>
+</button>
+```
+
+---
+
 ## 快速检查清单
 
 在新设备部署后，按以下顺序验证：

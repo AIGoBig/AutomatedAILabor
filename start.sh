@@ -3,8 +3,14 @@
 # Automated AI Labor - Start Script
 # This script launches the dev manager which handles both backend and frontend.
 
-kill -9 $(lsof -t -i:8000) $(lsof -t -i:3000) $(lsof -t -i:3002) 2>/dev/null; pkill -f dev_manager.py; pkill -f uvicorn; pkill -f next-server; sleep 1
-
+# Automatically clear out zombie processes occupying the API ports
+lsof -ti:8000 | xargs kill -9 2>/dev/null
+lsof -ti:3000 | xargs kill -9 2>/dev/null
+lsof -ti:3002 | xargs kill -9 2>/dev/null
+pkill -f dev_manager.py 2>/dev/null
+pkill -f uvicorn 2>/dev/null
+pkill -f next-server 2>/dev/null
+sleep 1
 echo "🚀 Starting Automated AI Labor V2..."
 
 nohup python3 dev_manager.py > logs/dev_manager.log 2>&1 &

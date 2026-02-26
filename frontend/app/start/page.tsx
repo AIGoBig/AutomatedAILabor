@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight } from 'lucide-react';
+import { Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight, Workflow } from 'lucide-react';
 import { apiPost } from '@/lib/api';
 
 const promptExamples = [
@@ -92,7 +92,7 @@ export default function StartPage() {
                 {step === 1 && (
                     <div className="space-y-8 animate-in slide-in-from-right-4 fade-in duration-500">
                         <h2 className="text-2xl font-black text-white tracking-tight text-center">选择一项核心技能</h2>
-                        <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
                             <button
                                 onClick={() => setFormData({ ...formData, type: 'research' })}
                                 className={`p-8 rounded-[2rem] border transition-all duration-300 text-left relative overflow-hidden group ${formData.type === 'research' ? 'glass-emerald border-emerald-500/50 shadow-2xl scale-[1.02]' : 'glass border-white/5 hover:border-white/20'}`}
@@ -115,6 +115,18 @@ export default function StartPage() {
                                 <h3 className="text-xl font-black text-white mb-2">编程任务</h3>
                                 <p className="text-sm text-neutral-400 leading-relaxed font-medium">自动化代码编写、架构设计、重构或算法开发。</p>
                                 {formData.type === 'code' && <div className="absolute top-4 right-4 text-purple-500"><CheckCircle size={20} /></div>}
+                            </button>
+
+                            <button
+                                onClick={() => setFormData({ ...formData, type: 'workflow' })}
+                                className={`p-8 rounded-[2rem] border transition-all duration-300 text-left relative overflow-hidden group ${formData.type === 'workflow' ? 'bg-amber-500/10 border-amber-500 shadow-2xl scale-[1.02]' : 'glass border-white/5 hover:border-white/20'}`}
+                            >
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors ${formData.type === 'workflow' ? 'bg-amber-500 text-black' : 'bg-white/5 text-amber-400 group-hover:bg-amber-500/20'}`}>
+                                    <Workflow size={28} />
+                                </div>
+                                <h3 className="text-xl font-black text-white mb-2">任务转 Workflow</h3>
+                                <p className="text-sm text-amber-500/80 leading-relaxed font-black">将单次对话任务沉淀为标准化的工作流引擎节点 (即将上线)</p>
+                                {formData.type === 'workflow' && <div className="absolute top-4 right-4 text-amber-500"><CheckCircle size={20} /></div>}
                             </button>
                         </div>
                         <div className="flex justify-center pt-8">
