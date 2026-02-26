@@ -23,6 +23,14 @@ const phaseColors: Record<string, string> = {
     review: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
 };
 
+const formatStructuralMarkers = (content: string): string => {
+    return content
+        .replace(/---TASK_SPEC---/g, '\n\n---\n\n**📋 任务规格说明**\n\n---\n\n')
+        .replace(/---END_SPEC---/g, '\n\n---\n\n**✅ 规格说明结束**\n\n---\n\n')
+        .replace(/---REVIEW---/g, '\n\n---\n\n**🔍 评审意见**\n\n---\n\n')
+        .replace(/---END_REVIEW---/g, '\n\n---\n\n**✅ 评审结束**\n\n---\n\n');
+};
+
 // Extracted Markdown components wrapper for reuse in streaming and final views
 const getMarkdownComponents = (jobType?: string) => ({
     code({ node, inline, className, children, ...props }: any) {
@@ -84,6 +92,8 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const tokenRef = useRef<HTMLDivElement>(null);
     const [userInput, setUserInput] = useState("");
     const [isSendingFeedback, setIsSendingFeedback] = useState(false);
+    const [countdown, setCountdown] = useState<number | null>(null);
+    const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
     // Auto-scroll token display
     useEffect(() => {
@@ -138,6 +148,50 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
             setJob((prev: any) => ({ ...prev, status: 'failed' }));
         }
     }, [stream.status, stream.finalResult]);
+
+    // Sync stream status to job status for awaiting_input
+    useEffect(() => {
+        if (stream.status === 'awaiting_input') {
+            setJob((prev: any) => prev ? { ...prev, status: 'awaiting_input' } : prev);
+        }
+    }, [stream.status]);
+
+    // 倒计时启动/关闭
+    useEffect(() => {
+        if (stream.status === 'awaiting_input') {
+            setCountdown(10);
+            countdownRef.current = setInterval(() => {
+                setCountdown(prev => (prev === null || prev <= 1) ? 0 : prev - 1);
+            }, 1000);
+        } else {
+            setCountdown(null);
+            if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+        }
+        return () => { if (countdownRef.current) { clearInterval(countdownRef.current); } };
+    }, [stream.status]);
+
+    const handleAutoProceed = async () => {
+        setIsSendingFeedback(true);
+        setCountdown(null);
+        if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+        const token = localStorage.getItem('token');
+        try {
+            const res = await apiPost(`/api/jobs/${id}/continue`, { feedback: '请继续执行' }, token);
+            if (res.ok) {
+                // Reconnect SSE stream after continue
+                stopStream();
+                startStream(id, token);
+            }
+        } catch (err) { console.error('Auto-proceed failed:', err); }
+        finally { setIsSendingFeedback(false); }
+    };
+
+    // 倒计时归零时自动继续
+    useEffect(() => {
+        if (countdown === 0 && stream.status === 'awaiting_input' && !isSendingFeedback) {
+            handleAutoProceed();
+        }
+    }, [countdown, stream.status, isSendingFeedback]);
 
     const handleRetry = async () => {
         const token = localStorage.getItem('token');
@@ -310,7 +364,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                                                     </span>
                                                                 </div>
                                                                 <div className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                                                                    {msg.content}
+                                                                    {formatStructuralMarkers(msg.content)}
                                                                 </div>
                                                             </div>
                                                             <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg bg-white/10 text-white">
@@ -342,7 +396,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                                                     remarkPlugins={[remarkGfm]}
                                                                     components={getMarkdownComponents(job?.type)}
                                                                 >
-                                                                    {msg.content}
+                                                                    {formatStructuralMarkers(msg.content)}
                                                                 </ReactMarkdown>
                                                                 {isStreaming && idx === stream.messages.length - 1 && (
                                                                     <span className={`inline-block w-2 h-4 animate-pulse ml-1 align-middle ${msg.role === 'supervisor' ? 'bg-amber-500/50' : 'bg-emerald-500/50'}`} />
@@ -375,8 +429,16 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     )}
 
                                     {/* User Input Area for Human In The Loop */}
+                                    {stream.status === 'awaiting_input' && countdown !== null && countdown > 0 && (
+                                        <div className="mt-4 flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 shrink-0">
+                                            <span className="text-xs text-amber-400 font-bold">⏱ 等待您的干预指令，{countdown}秒后自动继续执行...</span>
+                                            <button onClick={handleAutoProceed} className="text-xs text-amber-300 hover:text-white font-bold underline">
+                                                立即继续
+                                            </button>
+                                        </div>
+                                    )}
                                     {(!isCompleted && !isFailed) && (
-                                        <div className="mt-6 pt-6 border-t border-white/5 flex gap-3">
+                                        <div className="mt-4 pt-6 border-t border-white/5 flex gap-3 shrink-0">
                                             <input
                                                 type="text"
                                                 value={userInput}
@@ -384,13 +446,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') handleSendFeedback();
                                                 }}
-                                                disabled={isSendingFeedback || job?.status !== 'awaiting_input'}
-                                                placeholder={job?.status === 'awaiting_input' ? "请输入您的干预意见或补充信息..." : "请等待智能体分析完毕以提供反馈..."}
+                                                disabled={isSendingFeedback || stream.status !== 'awaiting_input'}
+                                                placeholder={stream.status === 'awaiting_input' ? "请输入您的干预意见或补充信息..." : "请等待智能体分析完毕以提供反馈..."}
                                                 className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                                             />
                                             <button
                                                 onClick={handleSendFeedback}
-                                                disabled={isSendingFeedback || !userInput.trim() || job?.status !== 'awaiting_input'}
+                                                disabled={isSendingFeedback || !userInput.trim() || stream.status !== 'awaiting_input'}
                                                 className="px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-emerald-500/30 transition-colors flex items-center justify-center shrink-0 min-w-[100px]"
                                             >
                                                 {isSendingFeedback ? <div className="w-5 h-5 border-2 border-emerald-400/20 border-t-emerald-400 rounded-full animate-spin"></div> : "发送指令"}
@@ -409,7 +471,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                         remarkPlugins={[remarkGfm]}
                                         components={getMarkdownComponents(job?.type)}
                                     >
-                                        {job.result.report}
+                                        {formatStructuralMarkers(job.result.report)}
                                     </ReactMarkdown>
                                 </article>
 

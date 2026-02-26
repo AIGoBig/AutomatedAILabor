@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -22,6 +22,7 @@ class Job(Base):
     status = Column(String, default="queued")
     result = Column(Text, nullable=True) # Storing JSON as text for SQLite simplicity
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     email = Column(String, nullable=True)
     payment_status = Column(String, default="pending") # pending, paid, failed
     amount = Column(String, default="5.00")

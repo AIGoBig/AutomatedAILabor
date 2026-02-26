@@ -415,25 +415,13 @@ def continue_job(job_id: str, req: ContinueRequestModel, db: Session = Depends(g
     if not state.next:
         raise HTTPException(status_code=400, detail="Graph is not currently interrupted")
         
-    # Inject the user's feedback into the graph at the human_interaction node
-    # Since we called `interrupt()`, update_state resuming it requires the value 
-    # as the node's output override essentially, or just sending standard `str` value.
+    # 注入用户反馈到图状态
     try:
-        from langgraph.types import Command
-        
-        # When resuming an interrupt, we can pass command to resume
-        # Update the state to actually resume the graph.
-        # In newer langgraph (0.2.x+)/or 0.1 where Command is used:
-        # Actually in MemorySaver, we just provide the command to resume
-        agent_graph.update_state(config, Command(resume=req.feedback), as_node="human_interaction")
-        
+        current_messages = list(state.values.get("messages", []))
+        current_messages.append({"role": "user", "content": req.feedback})
+        agent_graph.update_state(config, {"messages": current_messages})
     except Exception as e:
-        print(f"Error updating state: {e}")
-        # fallback for older langgraph methods 
-        try:
-            agent_graph.update_state(config, req.feedback, as_node="human_interaction")
-        except Exception as fallback_e:
-             raise HTTPException(status_code=500, detail=f"Failed to resume graph: {fallback_e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update graph state: {e}")
              
     job.status = "processing"
     db.commit()

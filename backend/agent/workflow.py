@@ -11,7 +11,6 @@ Architecture:
 """
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import interrupt
 from .nodes.research import research_node
 from .nodes.generate import generate_node
 from .nodes.code_node import code_node
@@ -22,23 +21,20 @@ from langchain_core.runnables import RunnableConfig
 
 def human_interaction_node(state: AgentState):
     """
-    Node that yields control back to the user to get feedback or approval before execution.
-    By calling interrupt(), LangGraph pauses state here until resumed by the backend API.
+    Graph pauses BEFORE this node via interrupt_before.
+    When resumed, feedback is already in state["messages"].
     """
-    feedback = interrupt("Ready for user feedback")
+    user_messages = [m for m in state.get("messages", []) if m.get("role") == "user"]
     
-    # When resumed with feedback:
-    if feedback and isinstance(feedback, str):
-        # We append the user feedback to the state
-        state["messages"].append({"role": "user", "content": feedback})
-        # If user gives feedback, we might want to attach it to the task spec or input
-        state["task_spec"] += f"\n\n[User Supplementary Request]:\n{feedback}"
-        state["logs"].append(f"👨‍💻 收到用户实时反馈协助，调整执行策略中...")
+    if user_messages:
+        latest_feedback = user_messages[-1].get("content", "")
+        if latest_feedback:
+            state["task_spec"] += f"\n\n[User Supplementary Request]:\n{latest_feedback}"
+            state["logs"].append("👨‍💻 收到用户实时反馈协助，调整执行策略中...")
     else:
         state["logs"].append("👨‍💻 用户直接确认通过，进入执行状态...")
 
     return {"task_spec": state["task_spec"], "messages": state["messages"], "logs": state["logs"]}
-
 
 async def executor_node(state: AgentState, config: RunnableConfig):
     """
@@ -115,8 +111,7 @@ workflow.add_conditional_edges(
 
 # Compile the graph with memory checkpointer
 memory = MemorySaver()
-agent_graph = workflow.compile(checkpointer=memory)
-
+agent_graph = workflow.compile(checkpointer=memory, interrupt_before=["human_interaction"])
 
 def run_agent(input_query: str, model_id: str = "gemini-1.5-flash", task_type: str = "research"):
     """
@@ -145,5 +140,7 @@ def run_agent(input_query: str, model_id: str = "gemini-1.5-flash", task_type: s
         "messages": []
     }
     
-    final_state = agent_graph.invoke(state)
+    import uuid
+    config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+    final_state = agent_graph.invoke(state, config=config)
     return final_state
