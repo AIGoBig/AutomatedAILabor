@@ -400,6 +400,24 @@ pkill -f dev_manager.py 2>/dev/null
 
 ---
 
+## 扩展 7：MVP 能力集 (Skills) 与组件发布 (Publishing) 可视化框架
+
+**需求**：支持“能力打标”概念，允许用户将单次结果发布为独立的 Skill (能力项) 或 垂直 AILabor 应用，并在首页大厅引入了侧边栏来罗列聚合的能力池。
+
+**加入方式**：
+
+#### 文件：`frontend/app/start/page.tsx`
+1. 将 “选择一项核心技能” 文案提升为更宏观的 “**选择 AILabor 的核心领域**”。
+2. 在原有的三大核心组件（深度研究、编程任务、Workflow）上新增了微型 **Skill Tags** 标签池，例如：`Python Sandbox`, `Node Extraction` 等。
+3. 增加第四个占位卡片：**其他领域 AILabor**。被设置为 `disabled` 与半透明状态，带有一个醒目的 `待任务完成后发布接入` UI 标示符。
+4. 全新改写了整体 Layout，划分出了左侧 `aside` 的 **能力库 (Skills)** 固定侧边栏，作为展示该 AILabor 所集成的各项独立原子能力（例如 Web Search, Data Analysis 等）列表界面。
+
+#### 文件：`frontend/app/dashboard/[id]/page.tsx`
+1. 在双栏产物工作台的“结算已完成”状态页底部，追增了两个操作按钮：“发布为 Skill” 与 “发布 AILabor”
+2. 内部编写了简单的 `handlePublish()` 模拟方法，在点击时展示交互 Loading 和成功的模拟通知。预留了往后端 `/api/publish/...` 节点写入结构化数据的能力。
+
+---
+
 ## 快速检查清单
 
 在新设备部署后，按以下顺序验证：

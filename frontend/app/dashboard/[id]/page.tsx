@@ -4,7 +4,7 @@ import { useEffect, useState, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Terminal, FileCode, Check, Copy, ArrowLeft, Download, AlertTriangle, Activity, XCircle, Bot, Eye, Cpu, ChevronDown, ChevronRight, Send } from 'lucide-react';
+import { Terminal, FileCode, Check, Copy, ArrowLeft, Download, AlertTriangle, Activity, XCircle, Bot, Eye, Cpu, ChevronDown, ChevronRight, Send, Box, Share, RefreshCw } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/api';
 import { useAgentStream } from '@/lib/useAgentStream';
 import ReactMarkdown from 'react-markdown';
@@ -96,6 +96,30 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [countdown, setCountdown] = useState<number | null>(null);
     const countdownRef = useRef<NodeJS.Timeout | null>(null);
     const [collapsedMessages, setCollapsedMessages] = useState<Set<string>>(new Set());
+    const [isPublishing, setIsPublishing] = useState<string | null>(null);
+
+    const handlePublish = async (publishType: 'skill' | 'ailabor') => {
+        setIsPublishing(publishType);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await apiPost(`/api/publish/${publishType}`, {
+                job_id: id,
+                title: job?.title || 'Untitled Project',
+                content: job?.result?.report || stream.finalResult?.report || ''
+            }, token);
+
+            if (res.ok) {
+                alert(`成功发布为 ${publishType === 'skill' ? 'Skill (能力项)' : 'AILabor (垂直领域代理)'}!`);
+            } else {
+                alert('MVP Mock: 发布接口暂未接入数据库');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('MVP Mock: 发布接口暂未接入数据库');
+        } finally {
+            setIsPublishing(null);
+        }
+    };
 
     const toggleCollapse = (msgId: string) => {
         setCollapsedMessages(prev => {
@@ -576,9 +600,30 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             )}
 
                             {isCompleted && (
-                                <button className="mt-4 w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest border border-emerald-500/20">
-                                    启动后续任务
-                                </button>
+                                <div className="mt-4 space-y-3">
+                                    <button className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest border border-emerald-500/20 shadow-sm">
+                                        启动后续任务
+                                    </button>
+
+                                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-emerald-500/10 border-dashed">
+                                        <button
+                                            onClick={() => handlePublish('skill')}
+                                            disabled={isPublishing !== null}
+                                            className="flex flex-col items-center justify-center gap-1.5 py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl transition-all uppercase tracking-widest border border-indigo-500/20 disabled:opacity-50 group hover:scale-[1.02]"
+                                        >
+                                            {isPublishing === 'skill' ? <RefreshCw size={14} className="animate-spin" /> : <Box size={14} className="group-hover:-translate-y-0.5 transition-transform" />}
+                                            <span className="text-[9px] font-black">发布为 Skill</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handlePublish('ailabor')}
+                                            disabled={isPublishing !== null}
+                                            className="flex flex-col items-center justify-center gap-1.5 py-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-all uppercase tracking-widest border border-blue-500/20 disabled:opacity-50 group hover:scale-[1.02]"
+                                        >
+                                            {isPublishing === 'ailabor' ? <RefreshCw size={14} className="animate-spin" /> : <Share size={14} className="group-hover:-translate-y-0.5 transition-transform" />}
+                                            <span className="text-[9px] font-black">发布 AILabor</span>
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </section>
 
@@ -664,8 +709,8 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             </section>
                         )}
                     </div>
-                </div>
-            </main>
-        </div>
+                </div >
+            </main >
+        </div >
     );
 }
