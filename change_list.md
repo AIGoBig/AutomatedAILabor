@@ -377,6 +377,29 @@ pkill -f dev_manager.py 2>/dev/null
 
 ---
 
+## 修复 9：沙盒代码执行导致服务热重启中断流 (Uvicorn Hot-Reload Crash)
+
+**现象**：由于后端默认使用了 `uvicorn --reload` 模式，当 `local_execution_node.py` 将生成的脚本动态写入 `workspace/temp/` 时，Uvicorn 的 watchdog 监听到了当前目录的文件修改变化，从而触发了服务热重启 `Restarting...`。热重启会强制暴力切断正在流式传输的长连接 (ASGI callable returned without completing response)，导致前端直接卡死失去连接。
+
+**修复方式**：
+
+#### 文件：`dev_manager.py`
+
+在 `BACKEND_CMD` 参数列表中新增了热重载排除路径 `--reload-exclude` 屏蔽沙盒生成目录：
+
+```diff
+ BACKEND_CMD = [
+     os.path.join(BACKEND_DIR, "venv", "bin", "python3"),
+     "-m", "uvicorn", "main:app",
+     "--host", "127.0.0.1",
+     "--port", "8000",
+     "--reload",
++    "--reload-exclude", "workspace/*"
+ ]
+```
+
+---
+
 ## 快速检查清单
 
 在新设备部署后，按以下顺序验证：

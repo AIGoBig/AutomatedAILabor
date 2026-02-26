@@ -21,7 +21,8 @@ BACKEND_CMD = [
     "-m", "uvicorn", "main:app",
     "--host", "127.0.0.1",
     "--port", "8000",
-    "--reload"
+    "--reload",
+    "--reload-exclude", "workspace/*"
 ]
 
 FRONTEND_CMD = ["/usr/local/n/versions/node/20.17.0/bin/npm", "run", "dev"]
