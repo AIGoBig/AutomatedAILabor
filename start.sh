@@ -13,7 +13,8 @@ pkill -f next-server 2>/dev/null
 sleep 1
 
 
-# echo "🚀 Starting Automated AI Labor V2..."
+echo "🚀 Starting Automated AI Labor V2..."
 
-# nohup python3 dev_manager.py > logs/dev_manager.log 2>&1 &
+nohup python3 dev_manager.py > logs/dev_manager.log 2>&1 &
 
+tail -f logs/dev_manager.log
