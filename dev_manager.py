@@ -22,7 +22,9 @@ BACKEND_CMD = [
     "--host", "127.0.0.1",
     "--port", "8000",
     "--reload",
-    "--reload-exclude", "workspace/*"
+    "--reload-exclude", "workspace",
+    "--reload-exclude", "*.python.py",
+    "--reload-exclude", os.path.join(BACKEND_DIR, "workspace"),
 ]
 
 FRONTEND_CMD = ["/usr/local/n/versions/node/20.17.0/bin/npm", "run", "dev"]

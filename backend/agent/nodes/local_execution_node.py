@@ -1,5 +1,6 @@
 import os
 import subprocess
+import tempfile
 from ..state import AgentState
 
 async def local_execution_node(state: AgentState):
@@ -10,8 +11,9 @@ async def local_execution_node(state: AgentState):
     code_blocks = state.get("code_blocks", [])
     if not code_blocks:
         return {"logs": state.get("logs", [])}
-        
-    workspace_dir = os.path.join(os.getcwd(), "workspace", "temp")
+
+    # Use /tmp to avoid triggering uvicorn's reload watchdog
+    workspace_dir = os.path.join(tempfile.gettempdir(), "ailabor_sandbox")
     os.makedirs(workspace_dir, exist_ok=True)
     
     # We run the first Python script for simplicity
