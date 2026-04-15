@@ -4,6 +4,7 @@ import TrustSection from '@/components/ui/TrustSection';
 import FeatureGrid from '@/components/ui/FeatureGrid';
 import HowItWorks from '@/components/ui/HowItWorks';
 import Pricing from '@/components/ui/Pricing';
+import CommunitySection from '@/components/ui/CommunitySection';
 import Footer from '@/components/ui/Footer';
 
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
       <FeatureGrid />
       <HowItWorks />
       <Pricing />
+      <CommunitySection />
       <Footer />
     </main>
   );

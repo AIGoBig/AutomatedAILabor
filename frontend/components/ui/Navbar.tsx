@@ -16,6 +16,7 @@ export default function Navbar() {
                 <div className="hidden md:flex items-center gap-8">
                     <Link href="/#features" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">功能介绍</Link>
                     <Link href="/#pricing" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">价格方案</Link>
+                    <Link href="/#community" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">社区</Link>
                     <Link href="/dashboard" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">我的行动</Link>
                     <Link href="/dashboard/settings" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">模型信息</Link>
                     <Link href="/start" className="px-5 py-2 rounded-full bg-emerald-500 text-black font-bold text-sm hover:bg-emerald-400 transition-colors">
