@@ -50,6 +50,13 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://172.18.165.218:3002",
+        "http://172.18.165.218:3000",
+        "http://ecodeai.com:3002",
+        "http://ecodeai.com:3000",
+        "http://ecodeai.com",
+        "http://labor.ecodeai.com",
+        "http://api.ecodeai.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -618,3 +625,7 @@ def get_usage_stats(db: Session = Depends(get_db)):
         },
         "recent_trends": trends
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -29,7 +29,8 @@ def _get_llm():
         return None
     
     from langchain_openai import ChatOpenAI
-    kwargs = {"model": "gemini-3-flash", "temperature": 0.3, "api_key": openai_key, "streaming": True}
+    default_model = os.getenv("DEFAULT_MODEL", "gemini-3-flash")
+    kwargs = {"model": default_model, "temperature": 0.3, "api_key": openai_key, "streaming": True}
     if openai_base:
         kwargs["base_url"] = openai_base
     return ChatOpenAI(**kwargs)
