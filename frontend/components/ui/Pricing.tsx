@@ -10,7 +10,7 @@ export default function Pricing() {
                     <h2 className="text-sm font-bold text-emerald-500 uppercase tracking-[0.3em] mb-4">Transparency</h2>
                     <h3 className="text-4xl md:text-5xl font-bold text-white mb-6">更简单的定价模式</h3>
                     <p className="text-neutral-500 max-w-xl mx-auto">
-                        摒弃复杂的订阅包月。在 Automated AI Labor，您只需针对每一个实际成果进行支付。
+                        摒弃复杂的订阅包月。在 Automated AI Labor，您只需为有效交付的结果中所消耗的 Token 付费。
                     </p>
                 </div>
 
@@ -27,13 +27,16 @@ export default function Pricing() {
                         </div>
 
                         <div className="mb-8 flex items-baseline gap-1">
-                            <span className="text-5xl font-bold text-white">Token</span>
-                            <span className="text-neutral-500 font-medium">用量计费</span>
+                            <span className="text-4xl font-bold text-white">按有效结果</span>
+                        </div>
+                        <div className="mb-8 flex items-baseline gap-1 -mt-4">
+                            <span className="text-2xl font-bold text-emerald-400">Token</span>
+                            <span className="text-neutral-500 font-medium">计费</span>
                         </div>
 
                         <ul className="space-y-4 mb-8">
                             {[
-                                "按实际消耗的 Token 计费",
+                                "仅对有效交付结果消耗计费",
                                 "20+ 外部信源深度分析",
                                 "自动去重与交叉验证",
                                 "结构化报告交付 (Markdown)"
@@ -64,8 +67,11 @@ export default function Pricing() {
                         </div>
 
                         <div className="mb-8 flex items-baseline gap-1">
-                            <span className="text-5xl font-bold text-neutral-700">Token</span>
-                            <span className="text-neutral-600 font-medium">用量计费</span>
+                            <span className="text-4xl font-bold text-neutral-700">按有效结果</span>
+                        </div>
+                        <div className="mb-8 flex items-baseline gap-1 -mt-4">
+                            <span className="text-2xl font-bold text-neutral-500">Token</span>
+                            <span className="text-neutral-600 font-medium">计费</span>
                         </div>
 
                         <ul className="space-y-4 mb-8">
