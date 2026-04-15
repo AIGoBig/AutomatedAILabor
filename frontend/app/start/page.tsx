@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
     Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight, Workflow, Box, PlusCircle,
-    Navigation, Server, GitBranch, Lightbulb, Terminal, ClipboardList, Sparkles, Key, Settings, Check
+    Navigation, Server, GitBranch, Lightbulb, Terminal, ClipboardList, Sparkles
 } from 'lucide-react';
 import { apiPost } from '@/lib/api';
 
@@ -279,34 +279,6 @@ const getWorkflowTitle = (id: string): string => {
     return wf?.title || id;
 };
 
-// API Key Status Component
-function ApiKeyStatus() {
-    const [hasKey, setHasKey] = useState(false);
-
-    useEffect(() => {
-        setHasKey(!!localStorage.getItem('token'));
-    }, []);
-
-    if (hasKey) {
-        return (
-            <div className="max-w-md mx-auto px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
-                <Check size={16} className="text-emerald-400 shrink-0" />
-                <span className="text-sm text-emerald-400">API Key 已配置</span>
-            </div>
-        );
-    }
-
-    return (
-        <div className="max-w-md mx-auto px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
-            <Key size={16} className="text-amber-400 shrink-0" />
-            <span className="text-sm text-amber-400">未配置 API Key</span>
-            <Link href="/dashboard/settings" className="ml-auto text-xs text-amber-300 hover:text-white underline shrink-0">
-                去设置
-            </Link>
-        </div>
-    );
-}
-
 export default function StartPage() {
     const router = useRouter();
     const [step, setStep] = useState(1);
@@ -347,16 +319,9 @@ export default function StartPage() {
     const handleBack = () => setStep(step - 1);
 
     const handleSubmit = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            if (confirm('请先设置 API Key 才能启动任务。\n\n是否前往增强设置页面？')) {
-                router.push('/dashboard/settings');
-            }
-            return;
-        }
-
         setLoading(true);
         try {
+            const token = localStorage.getItem('token') || '';
             const backendType = mapToBackendType(formData.type);
             const res = await apiPost('/api/jobs', { ...formData, type: backendType }, token);
 
@@ -369,7 +334,7 @@ export default function StartPage() {
             router.push(`/dashboard/${data.job_id}`);
         } catch (error: any) {
             console.error(error);
-            alert(`启动任务失败：${error?.message || '未知错误'}\n\n请检查 API Key 是否正确`);
+            alert(`启动任务失败：${error?.message || '未知错误'}`);
         } finally {
             setLoading(false);
         }
@@ -548,10 +513,10 @@ export default function StartPage() {
                             {/* Default model hint */}
                             <div className="max-w-xl mx-auto px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                                 <p className="text-sm text-emerald-400">
-                                    默认使用 <span className="font-bold">GLM-5</span> 模型，已自动填入 API Key
+                                    默认使用 <span className="font-bold">GLM-5</span> 模型，后端已预置免费模型凭证
                                 </p>
                                 <p className="text-xs text-neutral-500 mt-1">
-                                    如需更强推理能力，可前往 <a href="/dashboard/api-admin" className="text-cyan-400 underline">API 管理</a> 获取其他模型 Key
+                                    如需更强推理能力，可前往 <a href="/dashboard/api-admin" className="text-cyan-400 underline">API 管理</a> 获取其他模型
                                 </p>
                             </div>
 
@@ -634,9 +599,6 @@ export default function StartPage() {
                             <p className="text-neutral-500 font-medium max-w-lg mx-auto">
                                 Agent 准备就绪，即将基于所选模型开始执行任务。
                             </p>
-
-                            {/* API Key Status */}
-                            <ApiKeyStatus />
 
                             <div className="glass rounded-[2.5rem] p-10 text-left max-w-md mx-auto shadow-2xl relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-500 opacity-50" />
