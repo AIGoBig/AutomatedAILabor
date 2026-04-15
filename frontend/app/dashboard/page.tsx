@@ -22,14 +22,8 @@ export default function DashboardIndex() {
     const [user, setUser] = useState<{ email: string } | null>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            router.push('/login');
-            return;
-        }
-
-        // Fetch User Info (simulated or real endpoint if needed, here we just check token)
-        // Ideally we'd hit /users/me
+        // Demo mode: skip auth check for competition
+        const token = localStorage.getItem('token') || 'demo-session';
 
         fetchJobs(token);
     }, [router]);

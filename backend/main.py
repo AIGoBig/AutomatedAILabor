@@ -67,7 +67,7 @@ class JobRequestModel(BaseModel):
     type: str
     goal: str
     email: Optional[str] = None
-    model: Optional[str] = "gemini-3-flash"
+    model: Optional[str] = "glm-5"
 
 class JobResponseModel(BaseModel):
     job_id: str
@@ -255,7 +255,7 @@ async def stream_job(job_id: str, request: Request, db: Session = Depends(get_db
                 "report": "",
                 "revision_number": 0,
                 "max_revisions": 3,
-                "model": job.model or "gemini-1.5-flash",
+                "model": job.model or "glm-5",
                 "logs": ["初始化多智能体流水线 (SSE Streaming)..."],
                 "task_type": job.type,
                 "code_blocks": [],

@@ -20,12 +20,13 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}) {
         headers,
     });
 
-    if (res.status === 401) {
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-        }
-    }
+    // Demo mode: don't redirect to login on 401
+    // if (res.status === 401) {
+    //     if (typeof window !== 'undefined') {
+    //         localStorage.removeItem('token');
+    //         window.location.href = '/login';
+    //     }
+    // }
 
     return res;
 }

@@ -287,7 +287,7 @@ export default function StartPage() {
         goal: '',
         description: '',
         email: '',
-        model: 'gemini-3-flash'
+        model: 'glm-5'
     });
 
     // Pick a random example on mount
@@ -302,6 +302,7 @@ export default function StartPage() {
     }, []);
 
     const models = [
+        { id: 'glm-5', name: 'GLM-5', desc: '默认模型 · 综合最优' },
         { id: 'gemini-3-flash', name: 'Gemini 3 Flash', desc: '极速预览' },
         { id: 'gemini-3-pro-high', name: 'Gemini 3 Pro High', desc: '最强推理' },
         { id: 'gemini-3-pro-low', name: 'Gemini 3 Pro Low', desc: '轻量极速' },
