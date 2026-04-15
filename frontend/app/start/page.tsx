@@ -283,6 +283,7 @@ export default function StartPage() {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         type: 'research',
         goal: '',
@@ -319,11 +320,17 @@ export default function StartPage() {
     const handleBack = () => setStep(step - 1);
 
     const handleSubmit = async () => {
+        setError(null);
         setLoading(true);
         try {
             const token = localStorage.getItem('token') || '';
             const backendType = mapToBackendType(formData.type);
-            const res = await apiPost('/api/jobs', { ...formData, type: backendType }, token);
+            const res = await apiPost('/api/jobs', {
+                type: backendType,
+                goal: formData.goal,
+                description: formData.description || '',
+                model: formData.model,
+            }, token);
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => null);
@@ -333,8 +340,10 @@ export default function StartPage() {
             const data = await res.json();
             router.push(`/dashboard/${data.job_id}`);
         } catch (error: any) {
-            console.error(error);
-            alert(`启动任务失败：${error?.message || '未知错误'}`);
+            console.error('Task creation failed:', error);
+            const message = error?.message || '网络连接失败，请检查网络后重试';
+            setError(message);
+            setTimeout(() => setError(null), 5000);
         } finally {
             setLoading(false);
         }
@@ -646,6 +655,33 @@ export default function StartPage() {
                     )}
                 </div>
             </main>
+
+            {/* Error Toast */}
+            {error && (
+                <div className="fixed bottom-6 right-6 max-w-md z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className="bg-red-500/10 backdrop-blur-xl border border-red-500/30 rounded-2xl p-5 shadow-2xl">
+                        <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold text-red-400 mb-1">启动任务失败</h4>
+                                <p className="text-xs text-neutral-400 leading-relaxed">{error}</p>
+                            </div>
+                            <button
+                                onClick={() => setError(null)}
+                                className="p-1 rounded-lg hover:bg-white/10 text-neutral-500 hover:text-white transition-colors shrink-0"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
