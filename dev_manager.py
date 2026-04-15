@@ -12,7 +12,7 @@ BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 FRONTEND_DIR = os.path.join(ROOT_DIR, "frontend")
 
 # Ensure Node.js is in PATH for background processes
-NODE_PATHS = "/usr/local/n/versions/node/20.17.0/bin:/opt/homebrew/bin"
+NODE_PATHS = "/usr/bin:/usr/local/bin:/opt/homebrew/bin"
 os.environ["PATH"] = NODE_PATHS + ":" + os.environ.get("PATH", "")
 
 # Commands
@@ -27,7 +27,7 @@ BACKEND_CMD = [
     "--reload-exclude", os.path.join(BACKEND_DIR, "workspace"),
 ]
 
-FRONTEND_CMD = ["/usr/local/n/versions/node/20.17.0/bin/npm", "run", "dev"]
+FRONTEND_CMD = ["npm", "run", "dev"]
 
 class ServiceManager:
     def __init__(self, name, cmd, cwd):
