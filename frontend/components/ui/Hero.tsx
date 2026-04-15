@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ParticleCanvas from './ParticleCanvas';
 
 export default function Hero() {
     return (
@@ -7,12 +8,8 @@ export default function Hero() {
             {/* Background Grid */}
             <div className="absolute inset-0 bg-grid-white opacity-[0.05] pointer-events-none"></div>
 
-            {/* Animated Background Blobs */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl -z-10 pointer-events-none">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob"></div>
-                <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-                <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-purple-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
-            </div>
+            {/* Neural Network Particle Background */}
+            <ParticleCanvas className="absolute inset-0 w-full h-full opacity-80" />
 
             <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
 

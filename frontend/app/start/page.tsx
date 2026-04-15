@@ -2,8 +2,240 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight, Workflow, Box, PlusCircle } from 'lucide-react';
+import {
+    Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight, Workflow, Box, PlusCircle,
+    Navigation, Server, GitBranch, Lightbulb, Terminal, ClipboardList, Sparkles
+} from 'lucide-react';
 import { apiPost } from '@/lib/api';
+
+// Workflow type definitions with default prompts
+interface WorkflowType {
+    id: string;
+    title: string;
+    description: string;
+    icon: React.ElementType;
+    color: string;
+    tags: string[];
+    defaultPrompt: string;
+    category: 'general' | 'automotive' | 'specialized';
+    isNew?: boolean;
+    comingSoon?: boolean;
+}
+
+const workflowTypes: WorkflowType[] = [
+    // General Scenarios
+    {
+        id: 'research',
+        title: '深度研究',
+        description: '全面的市场分析、竞争对手解析或特定主题探索。',
+        icon: Search,
+        color: 'emerald',
+        tags: ['Web Search', 'Data Analysis', 'Doc Gen'],
+        defaultPrompt: '全球 AI 行业 2026 年度预测报告',
+        category: 'general'
+    },
+    {
+        id: 'code',
+        title: '编程任务',
+        description: '自动化代码编写、架构设计、重构或算法开发。',
+        icon: Code2,
+        color: 'purple',
+        tags: ['Python Sandbox', 'Code Review', 'React/Next.js'],
+        defaultPrompt: '构建一个基于 FastAPI 的 JWT 权限认证系统',
+        category: 'general'
+    },
+    {
+        id: 'general-ai-research',
+        title: '通用 AI 研究',
+        description: 'AI 领域技术突破分析、趋势洞察与战略报告。',
+        icon: Lightbulb,
+        color: 'sky',
+        tags: ['Literature Review', 'Trend Analysis', 'Doc Gen'],
+        defaultPrompt: '综合分析 2025 年 AI 领域最重要的 10 项技术突破，评估其对产业的短期与长期影响，撰写面向高管层的战略洞察报告',
+        category: 'general',
+        isNew: true
+    },
+    {
+        id: 'coding-assistant',
+        title: '编程 AI 助手',
+        description: '构建智能代码补全、调试与重构工具。',
+        icon: Terminal,
+        color: 'violet',
+        tags: ['Code Gen', 'Debug', 'Refactor'],
+        defaultPrompt: '构建一个带有流式输出的 Python 代码补全 CLI 工具，基于 OpenAI API，支持多文件上下文注入与交互式 REPL 模式',
+        category: 'general',
+        isNew: true
+    },
+    {
+        id: 'llm-evaluation',
+        title: 'LLM 评估报告',
+        description: '为企业 RAG 系统设计完整的 LLM 评估框架。',
+        icon: ClipboardList,
+        color: 'teal',
+        tags: ['Eval Design', 'RAGAS', 'Report'],
+        defaultPrompt: '为企业私有化部署的 RAG 问答系统设计完整的 LLM 评估框架，覆盖忠实度、相关性、幻觉率等核心指标，生成可复现评测 Pipeline 设计文档',
+        category: 'general',
+        isNew: true
+    },
+    {
+        id: 'workflow',
+        title: '任务转 Workflow',
+        description: '将单次对话任务沉淀为标准化的工作流引擎节点。',
+        icon: Workflow,
+        color: 'amber',
+        tags: ['Node Extraction', 'Pipeline Builder'],
+        defaultPrompt: '将用户需求收集到报告生成的完整流程，沉淀为可复用的 Dify 工作流节点',
+        category: 'general',
+        comingSoon: true
+    },
+    // Automotive & Specialized
+    {
+        id: 'auto-driving',
+        title: '自动驾驶研究',
+        description: '自动驾驶技术栈分析、感知算法与商业化进展研究。',
+        icon: Navigation,
+        color: 'cyan',
+        tags: ['Perception Research', 'Dataset Analysis', 'Safety Report'],
+        defaultPrompt: '深度分析 2025 年国内外自动驾驶 L3/L4 商业化落地进展，重点覆盖感知算法、监管政策与主要玩家技术路线对比',
+        category: 'automotive',
+        isNew: true
+    },
+    {
+        id: 'compute-planning',
+        title: '算力规划',
+        description: 'GPU 集群规划、模型训练成本估算与基础设施方案。',
+        icon: Server,
+        color: 'orange',
+        tags: ['GPU Benchmarking', 'Cost Modeling', 'Infra Report'],
+        defaultPrompt: '为大规模 AI 训练集群（千卡规模）制定 GPU 选型、网络拓扑与 TCO 成本分析报告，对比 H100/H20/国产芯片方案',
+        category: 'automotive',
+        isNew: true
+    },
+    {
+        id: 'agent-architecture',
+        title: 'AI Agent 架构设计',
+        description: '多智能体系统架构设计、LangGraph workflow 构建。',
+        icon: GitBranch,
+        color: 'indigo',
+        tags: ['LangGraph', 'System Design', 'Doc Gen'],
+        defaultPrompt: '设计一个面向企业的多 Agent 协作系统架构，覆盖任务分发、状态管理、工具调用与人工干预节点，输出完整架构设计文档',
+        category: 'automotive',
+        isNew: true
+    },
+    {
+        id: 'perf-benchmark',
+        title: '性能基准测试',
+        description: '模型推理性能基准测试、芯片对比与优化方案。',
+        icon: Activity,
+        color: 'rose',
+        tags: ['Benchmark Design', 'Data Analysis', 'Visualization'],
+        defaultPrompt: '对主流大语言模型在代码生成任务上进行系统性基准测试，输出量化对比报告与可视化图表方案',
+        category: 'automotive',
+        isNew: true
+    },
+];
+
+// Color configuration for Tailwind v4 (static class names)
+const colorConfig: Record<string, {
+    activeBorder: string;
+    activeBg: string;
+    activeIcon: string;
+    idleIcon: string;
+    tagBg: string;
+    checkColor: string;
+    shadow: string;
+}> = {
+    emerald: {
+        activeBorder: 'border-emerald-500',
+        activeBg: 'bg-emerald-500/10',
+        activeIcon: 'bg-emerald-500 text-black',
+        idleIcon: 'bg-white/5 text-emerald-400 group-hover:bg-emerald-500/20',
+        tagBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        checkColor: 'text-emerald-500',
+        shadow: 'shadow-[0_0_30px_rgba(16,185,129,0.3)]'
+    },
+    purple: {
+        activeBorder: 'border-purple-500',
+        activeBg: 'bg-purple-500/10',
+        activeIcon: 'bg-purple-500 text-black',
+        idleIcon: 'bg-white/5 text-purple-400 group-hover:bg-purple-500/20',
+        tagBg: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+        checkColor: 'text-purple-500',
+        shadow: 'shadow-[0_0_30px_rgba(168,85,247,0.3)]'
+    },
+    amber: {
+        activeBorder: 'border-amber-500',
+        activeBg: 'bg-amber-500/10',
+        activeIcon: 'bg-amber-500 text-black',
+        idleIcon: 'bg-white/5 text-amber-400 group-hover:bg-amber-500/20',
+        tagBg: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        checkColor: 'text-amber-500',
+        shadow: 'shadow-[0_0_30px_rgba(245,158,11,0.3)]'
+    },
+    cyan: {
+        activeBorder: 'border-cyan-500',
+        activeBg: 'bg-cyan-500/10',
+        activeIcon: 'bg-cyan-500 text-black',
+        idleIcon: 'bg-white/5 text-cyan-400 group-hover:bg-cyan-500/20',
+        tagBg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        checkColor: 'text-cyan-500',
+        shadow: 'shadow-[0_0_30px_rgba(6,182,212,0.3)]'
+    },
+    orange: {
+        activeBorder: 'border-orange-500',
+        activeBg: 'bg-orange-500/10',
+        activeIcon: 'bg-orange-500 text-black',
+        idleIcon: 'bg-white/5 text-orange-400 group-hover:bg-orange-500/20',
+        tagBg: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+        checkColor: 'text-orange-500',
+        shadow: 'shadow-[0_0_30px_rgba(249,115,22,0.3)]'
+    },
+    indigo: {
+        activeBorder: 'border-indigo-500',
+        activeBg: 'bg-indigo-500/10',
+        activeIcon: 'bg-indigo-500 text-black',
+        idleIcon: 'bg-white/5 text-indigo-400 group-hover:bg-indigo-500/20',
+        tagBg: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        checkColor: 'text-indigo-500',
+        shadow: 'shadow-[0_0_30px_rgba(99,102,241,0.3)]'
+    },
+    rose: {
+        activeBorder: 'border-rose-500',
+        activeBg: 'bg-rose-500/10',
+        activeIcon: 'bg-rose-500 text-black',
+        idleIcon: 'bg-white/5 text-rose-400 group-hover:bg-rose-500/20',
+        tagBg: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        checkColor: 'text-rose-500',
+        shadow: 'shadow-[0_0_30px_rgba(244,63,94,0.3)]'
+    },
+    sky: {
+        activeBorder: 'border-sky-500',
+        activeBg: 'bg-sky-500/10',
+        activeIcon: 'bg-sky-500 text-black',
+        idleIcon: 'bg-white/5 text-sky-400 group-hover:bg-sky-500/20',
+        tagBg: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+        checkColor: 'text-sky-500',
+        shadow: 'shadow-[0_0_30px_rgba(14,165,233,0.3)]'
+    },
+    violet: {
+        activeBorder: 'border-violet-500',
+        activeBg: 'bg-violet-500/10',
+        activeIcon: 'bg-violet-500 text-black',
+        idleIcon: 'bg-white/5 text-violet-400 group-hover:bg-violet-500/20',
+        tagBg: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+        checkColor: 'text-violet-500',
+        shadow: 'shadow-[0_0_30px_rgba(139,92,246,0.3)]'
+    },
+    teal: {
+        activeBorder: 'border-teal-500',
+        activeBg: 'bg-teal-500/10',
+        activeIcon: 'bg-teal-500 text-black',
+        idleIcon: 'bg-white/5 text-teal-400 group-hover:bg-teal-500/20',
+        tagBg: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+        checkColor: 'text-teal-500',
+        shadow: 'shadow-[0_0_30px_rgba(20,184,166,0.3)]'
+    },
+};
 
 const promptExamples = [
     { type: 'research', goal: '全球 AI 行业 2026 年度预测报告' },
@@ -12,7 +244,39 @@ const promptExamples = [
     { type: 'code', goal: '用 Python 编写一个获取并验证当前网页连通性的脚本' },
     { type: 'code', goal: '用 React + Tailwind 编写一个精美的个人主页组件' },
     { type: 'code', goal: '构建一个基于 FastAPI 的 JWT 权限认证系统' },
+    { type: 'auto-driving', goal: '深度分析 2025 年国内外自动驾驶 L3/L4 商业化落地进展' },
+    { type: 'auto-driving', goal: '特斯拉 FSD v12 vs 华为 ADS 3.0 技术路线深度对比报告' },
+    { type: 'compute-planning', goal: '为千卡 GPU 训练集群制定 H100/H20/国产芯片 TCO 成本对比方案' },
+    { type: 'agent-architecture', goal: '设计企业级多 Agent 协作系统：任务分发、状态机与人工干预节点架构' },
+    { type: 'perf-benchmark', goal: 'GPT-4o vs Claude 3.5 vs Gemini 1.5 代码生成任务基准测试报告' },
+    { type: 'general-ai-research', goal: '2025 年 AI 领域十大技术突破及其产业影响力战略报告' },
+    { type: 'coding-assistant', goal: '构建带流式输出的 Python 代码补全 CLI 工具，支持多文件上下文注入' },
+    { type: 'llm-evaluation', goal: '为私有化 RAG 问答系统设计完整 LLM 评估框架，覆盖忠实度与幻觉率指标' },
 ];
+
+// Backend type mapping
+const mapToBackendType = (frontendType: string): string => {
+    const researchTypes = ['research', 'auto-driving', 'compute-planning', 'general-ai-research', 'perf-benchmark', 'llm-evaluation', 'agent-architecture'];
+    const codeTypes = ['code', 'coding-assistant'];
+    if (researchTypes.includes(frontendType)) return 'research';
+    if (codeTypes.includes(frontendType)) return 'code';
+    return 'research';
+};
+
+// Get label based on type
+const getGoalLabel = (type: string): string => {
+    if (type === 'code' || type === 'coding-assistant') return '工程目标';
+    if (type === 'llm-evaluation' || type === 'perf-benchmark') return '评估目标';
+    if (type === 'auto-driving' || type === 'compute-planning') return '研究课题';
+    if (type === 'agent-architecture') return '架构目标';
+    return '研究主题';
+};
+
+// Get workflow title by id
+const getWorkflowTitle = (id: string): string => {
+    const wf = workflowTypes.find(w => w.id === id);
+    return wf?.title || id;
+};
 
 export default function StartPage() {
     const router = useRouter();
@@ -29,10 +293,11 @@ export default function StartPage() {
     // Pick a random example on mount
     useEffect(() => {
         const randomExample = promptExamples[Math.floor(Math.random() * promptExamples.length)];
+        const wf = workflowTypes.find(w => w.id === randomExample.type);
         setFormData(prev => ({
             ...prev,
             type: randomExample.type,
-            goal: randomExample.goal
+            goal: wf?.defaultPrompt || randomExample.goal
         }));
     }, []);
 
@@ -55,7 +320,8 @@ export default function StartPage() {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await apiPost('/api/jobs', formData, token);
+            const backendType = mapToBackendType(formData.type);
+            const res = await apiPost('/api/jobs', { ...formData, type: backendType }, token);
 
             if (!res.ok) throw new Error('Submission failed');
 
@@ -70,6 +336,75 @@ export default function StartPage() {
         }
     };
 
+    const handleTypeSelect = (wf: WorkflowType) => {
+        if (wf.comingSoon) return;
+        setFormData({
+            ...formData,
+            type: wf.id,
+            goal: wf.defaultPrompt
+        });
+    };
+
+    const generalTypes = workflowTypes.filter(w => w.category === 'general');
+    const automotiveTypes = workflowTypes.filter(w => w.category === 'automotive' || w.category === 'specialized');
+
+    const renderWorkflowCard = (wf: WorkflowType) => {
+        const isSelected = formData.type === wf.id;
+        const colors = colorConfig[wf.color];
+        const Icon = wf.icon;
+        const isDisabled = wf.comingSoon;
+
+        return (
+            <button
+                key={wf.id}
+                onClick={() => handleTypeSelect(wf)}
+                disabled={isDisabled}
+                className={`p-6 rounded-2xl border transition-all duration-300 text-left relative overflow-hidden group ${
+                    isSelected
+                        ? `${colors.activeBg} ${colors.activeBorder} ${colors.shadow} scale-[1.02]`
+                        : 'glass border-white/5 hover:border-white/20'
+                } ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+            >
+                <div className="flex items-start justify-between mb-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
+                        isSelected ? colors.activeIcon : colors.idleIcon
+                    }`}>
+                        <Icon size={24} />
+                    </div>
+                    {wf.isNew && !isSelected && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-md border border-emerald-500/30 flex items-center gap-1">
+                            <Sparkles size={10} />
+                            NEW
+                        </span>
+                    )}
+                    {isSelected && (
+                        <div className={colors.checkColor}>
+                            <CheckCircle size={20} />
+                        </div>
+                    )}
+                    {wf.comingSoon && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-neutral-500/10 text-neutral-400 rounded-md border border-neutral-500/20">
+                            即将上线
+                        </span>
+                    )}
+                </div>
+
+                <h3 className="text-lg font-black text-white mb-2">{wf.title}</h3>
+                <p className={`text-sm leading-relaxed font-medium mb-4 ${wf.comingSoon ? 'text-amber-500/80' : 'text-neutral-400'}`}>
+                    {wf.description}
+                </p>
+
+                <div className="flex flex-wrap gap-1.5 mt-auto">
+                    {wf.tags.map(tag => (
+                        <span key={tag} className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${colors.tagBg}`}>
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            </button>
+        );
+    };
+
     return (
         <div className="flex-1 flex text-neutral-100 font-sans selection:bg-emerald-500/30 overflow-hidden relative">
             {/* Skills Sidebar */}
@@ -82,7 +417,6 @@ export default function StartPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-                    {/* Mock list of skills */}
                     {[
                         { name: 'Web Search', active: true },
                         { name: 'Data Analysis', active: true },
@@ -90,6 +424,9 @@ export default function StartPage() {
                         { name: 'Python Sandbox', active: true },
                         { name: 'Code Review', active: true },
                         { name: 'React/Next.js', active: true },
+                        { name: 'LangGraph', active: true },
+                        { name: 'GPU Benchmarking', active: true },
+                        { name: 'Perception Research', active: true },
                         { name: 'Node Extraction', active: false },
                         { name: 'Pipeline Builder', active: false }
                     ].map((skill) => (
@@ -113,7 +450,7 @@ export default function StartPage() {
 
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto py-12 px-8 relative z-10 w-full">
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-5xl mx-auto">
                     <div className="mb-12 text-center">
                         <h1 className="text-5xl font-black text-white mb-4 tracking-tighter">定义您的目标</h1>
                         <p className="text-neutral-500 font-medium">告诉我们需要做什么。我们的代理将处理剩下的工作。</p>
@@ -133,80 +470,26 @@ export default function StartPage() {
                     {step === 1 && (
                         <div className="space-y-8 animate-in slide-in-from-right-4 fade-in duration-500">
                             <h2 className="text-2xl font-black text-white tracking-tight text-center">选择 AILabor 的核心领域</h2>
-                            <div className="grid lg:grid-cols-2 gap-6">
-                                <button
-                                    onClick={() => setFormData({ ...formData, type: 'research' })}
-                                    className={`p-8 rounded-[2rem] border transition-all duration-300 text-left relative overflow-hidden group ${formData.type === 'research' ? 'glass-emerald border-emerald-500/50 shadow-2xl scale-[1.02]' : 'glass border-white/5 hover:border-white/20'}`}
-                                >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors ${formData.type === 'research' ? 'bg-emerald-500 text-black' : 'bg-white/5 text-emerald-400 group-hover:bg-emerald-500/20'}`}>
-                                        <Search size={28} />
-                                    </div>
-                                    <h3 className="text-xl font-black text-white mb-2">深度研究</h3>
-                                    <p className="text-sm text-neutral-400 leading-relaxed font-medium mb-4">全面的市场分析、竞争对手解析或特定主题探索。</p>
 
-                                    {/* Skill Tags */}
-                                    <div className="flex flex-wrap gap-2 mt-auto">
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20">Web Search</span>
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20">Data Analysis</span>
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20">Doc Gen</span>
+                            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                                {/* General Section */}
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-3 px-1">通用场景</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {generalTypes.map(renderWorkflowCard)}
                                     </div>
-                                    {formData.type === 'research' && <div className="absolute top-4 right-4 text-emerald-500"><CheckCircle size={20} /></div>}
-                                </button>
+                                </div>
 
-                                <button
-                                    onClick={() => setFormData({ ...formData, type: 'code' })}
-                                    className={`p-8 rounded-[2rem] border transition-all duration-300 text-left relative overflow-hidden group ${formData.type === 'code' ? 'bg-purple-500/10 border-purple-500 shadow-2xl scale-[1.02]' : 'glass border-white/5 hover:border-white/20'}`}
-                                >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors ${formData.type === 'code' ? 'bg-purple-500 text-black' : 'bg-white/5 text-purple-400 group-hover:bg-purple-500/20'}`}>
-                                        <Code2 size={28} />
+                                {/* Automotive Section */}
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-3 px-1">汽车科技 / 专业研究</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {automotiveTypes.map(renderWorkflowCard)}
                                     </div>
-                                    <h3 className="text-xl font-black text-white mb-2">编程任务</h3>
-                                    <p className="text-sm text-neutral-400 leading-relaxed font-medium mb-4">自动化代码编写、架构设计、重构或算法开发。</p>
-
-                                    {/* Skill Tags */}
-                                    <div className="flex flex-wrap gap-2 mt-auto">
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20">Python Sandbox</span>
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20">Code Review</span>
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20">React/Next.js</span>
-                                    </div>
-                                    {formData.type === 'code' && <div className="absolute top-4 right-4 text-purple-500"><CheckCircle size={20} /></div>}
-                                </button>
-
-                                <button
-                                    onClick={() => setFormData({ ...formData, type: 'workflow' })}
-                                    className={`p-8 rounded-[2rem] border transition-all duration-300 text-left relative overflow-hidden group ${formData.type === 'workflow' ? 'bg-amber-500/10 border-amber-500 shadow-2xl scale-[1.02]' : 'glass border-white/5 hover:border-white/20'}`}
-                                >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors ${formData.type === 'workflow' ? 'bg-amber-500 text-black' : 'bg-white/5 text-amber-400 group-hover:bg-amber-500/20'}`}>
-                                        <Workflow size={28} />
-                                    </div>
-                                    <h3 className="text-xl font-black text-white mb-2">任务转 Workflow</h3>
-                                    <p className="text-sm text-amber-500/80 leading-relaxed font-black mb-4">将单次对话任务沉淀为标准化的工作流引擎节点 (即将上线)</p>
-
-                                    {/* Skill Tags */}
-                                    <div className="flex flex-wrap gap-2 mt-auto">
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-amber-500/10 text-amber-400 rounded-md border border-amber-500/20">Node Extraction</span>
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 bg-amber-500/10 text-amber-400 rounded-md border border-amber-500/20">Pipeline Builder</span>
-                                    </div>
-                                    {formData.type === 'workflow' && <div className="absolute top-4 right-4 text-amber-500"><CheckCircle size={20} /></div>}
-                                </button>
-
-                                <button
-                                    disabled
-                                    className={`p-8 rounded-[2rem] border transition-all duration-300 text-left relative overflow-hidden group glass border-white/5 opacity-60 flex flex-col`}
-                                >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors bg-white/5 text-neutral-500`}>
-                                        <Box size={28} />
-                                    </div>
-                                    <h3 className="text-xl font-black text-white mb-2">其他领域 AILabor</h3>
-                                    <div className="absolute top-4 right-4"><span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 bg-neutral-500/10 text-neutral-400 rounded-md border border-neutral-500/20">待发布</span></div>
-                                    <p className="text-sm text-neutral-500 leading-relaxed font-medium mb-4">更多垂直领域 AILabor</p>
-
-                                    <div className="flex flex-wrap gap-2 mt-auto">
-                                        <span className="text-[9px] font-black tracking-wider px-2 py-1 bg-white/5 text-neutral-500 rounded-md">待任务完成后发布接入</span>
-                                    </div>
-                                </button>
+                                </div>
                             </div>
-                            <div className="flex justify-center pt-8">
+
+                            <div className="flex justify-center pt-4">
                                 <button
                                     onClick={handleNext}
                                     disabled={!formData.type}
@@ -257,11 +540,11 @@ export default function StartPage() {
                                 <div className="glass p-8 rounded-3xl space-y-6">
                                     <div>
                                         <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
-                                            {formData.type === 'code' ? '工程目标' : '研究主题'}
+                                            {getGoalLabel(formData.type)}
                                         </label>
                                         <input
                                             type="text"
-                                            placeholder={formData.type === 'code' ? "例如：构建一个基于 FastAPI 的权限系统" : "例如：AI 编程助手的未来"}
+                                            placeholder={formData.type === 'code' || formData.type === 'coding-assistant' ? "例如：构建一个基于 FastAPI 的权限系统" : "例如：AI 编程助手的未来"}
                                             className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500 transition-all font-medium"
                                             value={formData.goal}
                                             onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
@@ -307,8 +590,8 @@ export default function StartPage() {
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-baseline border-b border-white/5 pb-4">
                                         <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">服务类别</span>
-                                        <span className={`text-sm font-black ${formData.type === 'code' ? "text-purple-400" : "text-emerald-400"}`}>
-                                            {formData.type === 'code' ? 'AI 代码工程' : '深度研究代理'}
+                                        <span className={`text-sm font-black ${colorConfig[workflowTypes.find(w => w.id === formData.type)?.color || 'emerald'].checkColor}`}>
+                                            {getWorkflowTitle(formData.type)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-baseline border-b border-white/5 pb-4">
