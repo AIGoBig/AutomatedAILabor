@@ -27,16 +27,16 @@ export default function Pricing() {
                         </div>
 
                         <div className="mb-8 flex items-baseline gap-1">
-                            <span className="text-5xl font-bold text-white">$5</span>
-                            <span className="text-neutral-500 font-medium">/ 每个成果</span>
+                            <span className="text-5xl font-bold text-white">Token</span>
+                            <span className="text-neutral-500 font-medium">用量计费</span>
                         </div>
 
                         <ul className="space-y-4 mb-8">
                             {[
+                                "按实际消耗的 Token 计费",
                                 "20+ 外部信源深度分析",
                                 "自动去重与交叉验证",
-                                "结构化报告交付 (Markdown)",
-                                "15 分钟内极速响应"
+                                "结构化报告交付 (Markdown)"
                             ].map((feature, i) => (
                                 <li key={i} className="flex items-center gap-3 text-sm text-neutral-300 font-light">
                                     <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -64,8 +64,8 @@ export default function Pricing() {
                         </div>
 
                         <div className="mb-8 flex items-baseline gap-1">
-                            <span className="text-5xl font-bold text-neutral-700">$TBD</span>
-                            <span className="text-neutral-600 font-medium">/ 交付物</span>
+                            <span className="text-5xl font-bold text-neutral-700">Token</span>
+                            <span className="text-neutral-600 font-medium">用量计费</span>
                         </div>
 
                         <ul className="space-y-4 mb-8">

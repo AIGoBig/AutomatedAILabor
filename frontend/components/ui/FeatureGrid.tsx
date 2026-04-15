@@ -69,12 +69,12 @@ export default function FeatureGrid() {
 
                             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
                                 <div className="text-center">
-                                    <div className="text-xl font-black text-white">847</div>
-                                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider">本月完成任务</div>
+                                    <div className="text-xl font-black text-white">—</div>
+                                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider">持续扩展中</div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-xl font-black text-white">&lt;4m</div>
-                                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider">平均交付时间</div>
+                                    <div className="text-xl font-black text-white">实时</div>
+                                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider">SSE 流式输出</div>
                                 </div>
                             </div>
                         </div>
@@ -130,8 +130,8 @@ export default function FeatureGrid() {
                         <h3 className="text-xl font-bold text-white mb-2">专家级质量</h3>
                         <p className="text-sm text-neutral-500 mb-4">每一份产出在送达前都会经过&ldquo;审核代理&rdquo;的严格评审。</p>
                         <div className="text-center py-3">
-                            <div className="text-3xl font-black text-emerald-400 tracking-tight">98.7%</div>
-                            <div className="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">用户满意度</div>
+                            <div className="text-3xl font-black text-emerald-400 tracking-tight">多级评审</div>
+                            <div className="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">质量保障机制</div>
                         </div>
                     </div>
 

@@ -15,9 +15,12 @@ FRONTEND_DIR = os.path.join(ROOT_DIR, "frontend")
 NODE_PATHS = "/usr/bin:/usr/local/bin:/opt/homebrew/bin"
 os.environ["PATH"] = NODE_PATHS + ":" + os.environ.get("PATH", "")
 
+# Backend Python - use conda environment
+BACKEND_PYTHON = os.path.expanduser("~/.conda/envs/ailabor/bin/python3")
+
 # Commands
 BACKEND_CMD = [
-    os.path.join(BACKEND_DIR, "venv", "bin", "python3"),
+    BACKEND_PYTHON,
     "-m", "uvicorn", "main:app",
     "--host", "127.0.0.1",
     "--port", "8000",

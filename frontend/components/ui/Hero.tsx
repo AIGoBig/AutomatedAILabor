@@ -32,8 +32,8 @@ export default function Hero() {
                 </h1>
 
                 <p className="text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed">
-                    全球首个以成果为导向的 AI 劳动力平台。雇佣 AI 代理完成研究、编程或内容创作。
-                    <span className="text-white font-medium block mt-2"> 仅在任务完美交付后支付费用。</span>
+                    多智能体协同的 AI 劳动力平台。雇佣 AI 代理完成研究、编程或内容创作。
+                    <span className="text-white font-medium block mt-2"> 基于 Token 用量计费，按需付费。</span>
                 </p>
 
                 {/* CTA Buttons */}
