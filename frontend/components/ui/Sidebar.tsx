@@ -13,7 +13,8 @@ import {
     User,
     BarChart3,
     Activity,
-    X
+    X,
+    Key
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
 
@@ -64,6 +65,11 @@ export default function Sidebar({ onClose }: SidebarProps) {
             title: "模型状态",
             icon: <Activity size={20} />,
             href: "/dashboard/models",
+        },
+        {
+            title: "API 管理",
+            icon: <Key size={20} />,
+            href: "/dashboard/api-admin",
         },
         {
             title: "设置",
