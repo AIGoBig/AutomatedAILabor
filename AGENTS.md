@@ -1,228 +1,241 @@
-# Automated AI Labor — Multi-Agent Architecture & Roadmap
+# AGENTS.md
 
-## 1. 项目现状 (v1.1.0 Polished MVP)
+This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
-### 已交付能力
-- **前端**: Next.js + TailwindCSS 仪表盘，Apple 风格 Mesh Gradient 动态背景，全站 Glassmorphism，移动端响应式侧边栏
-- **后端**: FastAPI + LangGraph Agent Pipeline，SQLite 持久化，JWT 鉴权
-- **功能**: 任务创建 → 轮询 → 结果展示，重试/取消，7 天 Token 消耗分析
-- **性能**: 智能轮询（任务完成即停止请求），统一 API 层
+## Project Overview
 
----
+**Automated AI Labor** is a multi-agent AI system that delivers "Results as a Service" (RaaS). It uses a Supervisor-Executor pattern where a Supervisor Agent clarifies requirements and reviews outputs, while an Executor Agent performs research/code generation tasks.
 
-## 2. 多智能体架构设计 (Multi-Agent Architecture)
+**Stack**: Next.js 16 (frontend) + FastAPI + LangGraph (backend)
 
-### 2.1 核心理念
+## Development Commands
 
-> **系统目标：无人值守交付 (Autonomous Delivery)**
-> 在用户不干预的情况下，系统应能自主完成从需求理解 → 执行 → 质检 → 交付的完整闭环。
-> **交付导向**: 能交付 Web 页面就不交付代码；能交付数据图表就不交付原始数据。
+### Backend (Python/FastAPI)
 
-### 2.2 智能体角色定义
+```bash
+cd backend
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    用户 (User)                       │
-└──────────────┬──────────────────────┬────────────────┘
-               │ 需求输入              │ 结果反馈/沉默
-               ▼                      ▼
-┌──────────────────────────────────────────────────────┐
-│              监督智能体 (Supervisor Agent)             │
-│  ┌──────────────────────────────────────────────┐    │
-│  │  Phase 1: 需求澄清 (Clarification)           │    │
-│  │  - 与用户多轮交互，拆解模糊需求               │    │
-│  │  - 确认目标、格式、约束条件                   │    │
-│  │  - 生成结构化 TaskSpec                        │    │
-│  ├──────────────────────────────────────────────┤    │
-│  │  Phase 2: 质量评审 (Review)                   │    │
-│  │  - 接收执行智能体的产出                       │    │
-│  │  - 对比 TaskSpec 逐条检查                     │    │
-│  │  - 用户 10s 无反馈 → 自动评审并给出意见       │    │
-│  │  - 不合格 → 生成修改指令发回执行智能体        │    │
-│  └──────────────────────────────────────────────┘    │
-└──────────────┬──────────────────────┬────────────────┘
-               │ TaskSpec              │ 修改指令
-               ▼                      ▼
-┌──────────────────────────────────────────────────────┐
-│              执行智能体 (Executor Agent)               │
-│  - 接收结构化 TaskSpec                                │
-│  - 调用工具链: LLM 生成 / 搜索 / 代码执行             │
-│  - 输出可交付资产 (HTML/图表/PDF)                     │
-│  - 支持被监督智能体要求修改并重新执行                  │
-└──────────────────────────────────────────────────────┘
+# Install dependencies
+pip install -r requirements.txt
+
+# Run development server (port 8000)
+./venv/bin/python3 main.py
+# OR (if venv not available)
+python3 main.py
+
+# The backend auto-reloads and serves at http://localhost:8000
 ```
 
-### 2.3 交互流程 (Interaction Flow)
-
+**Backend Environment** (`.env`):
 ```
-用户提交需求
-    │
-    ▼
-[监督智能体] ──→ "您的需求是 X，请确认以下细节..."
-    │                          ↑
-    │ (多轮澄清)               │ 用户补充
-    ▼                          │
-[监督智能体] ──→ "需求已确认，正式进入生产流程。"
-    │
-    ▼
-[监督智能体] ──→ 生成 TaskSpec ──→ [执行智能体] 开始工作
-                                       │
-                                       │ (SSE 流式输出执行过程)
-                                       ▼
-                              执行智能体完成 → 产出结果
-                                       │
-                 ┌─────────────────────┤
-                 ▼                     ▼
-            结果推送给用户        结果推送给监督智能体
-                 │
-                 ├── 用户在 10s 内反馈 → 人工意见覆盖
-                 │
-                 └── 用户 10s 无反馈 → 监督智能体自动评审
-                                       │
-                                       ├── 合格 → 标记交付完成 ✅
-                                       └── 不合格 → 生成修改指令 → 执行智能体重做
-                                                                    │
-                                                                    └── (循环直到合格或达最大轮次)
+OPENAI_API_KEY=...
+OPENAI_BASE_URL=...
+NO_PROXY=localhost,127.0.0.1  # Required to avoid 502 errors from system proxies
 ```
 
-### 2.4 交付物标准 (Deliverable Standards)
+### Frontend (Next.js)
 
-| 任务类型 | 交付物 | 而非 |
-|---------|--------|------|
-| Web 页面 | 可预览的 HTML 页面 (iframe 嵌入) | 源代码文本 |
-| 数据分析 | 交互式图表 (ECharts/Chart.js) | 原始数据表 |
-| 研究报告 | 格式化 Markdown + PDF 下载 | 纯文本 |
-| 代码工程 | 可运行的代码 + 执行结果截图 | 仅代码 |
+```bash
+cd frontend
 
-### 2.5 可扩展性设计
+# Install dependencies
+npm install
 
-系统采用 **插件式智能体注册** 架构，后续可按需扩展：
+# Run development server (port 3000)
+npm run dev
 
-| 智能体 | 职责 | 优先级 |
-|--------|------|--------|
-| 🧑‍💼 Supervisor Agent | 需求澄清、质量评审、自动验收 | ✅ 当前阶段 |
-| ⚙️ Executor Agent | 研究/代码/内容生成 | ✅ 当前阶段 |
-| 🔍 Research Agent | 深度网络搜索与信息聚合 | Phase 3 |
-| 🎨 Design Agent | UI/UX 设计与资产生成 | Phase 4 |
-| 🧪 QA Agent | 自动化测试与回归验证 | Phase 4 |
+# Build for production
+npm run build
 
----
-
-## 3. 流式交互架构 (Streaming Architecture)
-
-### 3.1 通信协议
-
-**从轮询 (Polling) 升级为 Server-Sent Events (SSE)**
-
-```
-前端 (Next.js)                    后端 (FastAPI)
-    │                                  │
-    │── GET /api/jobs/{id}/stream ────→│
-    │                                  │── agent_graph.astream_events()
-    │←── event: status ───────────────│
-    │←── event: token (逐字) ─────────│
-    │←── event: action (工具调用) ─────│
-    │←── event: review (监督评审) ─────│
-    │←── event: end ──────────────────│
+# Lint
+npm run lint
 ```
 
-### 3.2 LangGraph StateGraph 编排
-
-```python
-# 简化的图结构
-workflow = StateGraph(AgentState)
-
-workflow.add_node("supervisor_clarify", supervisor_clarify_node)
-workflow.add_node("executor", executor_node)
-workflow.add_node("supervisor_review", supervisor_review_node)
-
-# 路由
-workflow.set_entry_point("supervisor_clarify")
-workflow.add_edge("supervisor_clarify", "executor")
-workflow.add_edge("executor", "supervisor_review")
-workflow.add_conditional_edges(
-    "supervisor_review",
-    review_decision,
-    {"approved": END, "revision_needed": "executor"}
-)
+**Frontend Environment** (`.env.local`):
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### 3.3 前端组件
+### Full Stack Development
 
-| 组件 | 功能 |
-|------|------|
-| `StreamingMarkdown` | 处理未闭合代码块的流式 Markdown 渲染 |
-| `AgentActionBlock` | 工具调用可视化 (搜索中/代码执行中) |
-| `SupervisorBubble` | 监督智能体的需求澄清对话气泡 |
-| `ResultPreview` | 内嵌 iframe/图表的交付物预览 |
-| `ChatInputArea` | 底部固定的多行输入框 |
+1. Start backend: `cd backend && ./venv/bin/python3 main.py`
+2. Start frontend: `cd frontend && npm run dev`
+3. Access app at http://localhost:3000
 
----
+## Server Deployment
 
-## 4. 集成外部代理能力 (External Agent Integration)
+### Server Connection
 
-### 4.1 方案 A: 原生构建 (LangGraph + Sandbox)
-给 Executor Agent 提供 `bash_execute`, `read_file`, `write_file` 等工具，在 Docker 沙箱中执行。
+**SSH Access**:
+```bash
+ssh server-4c8g
+```
 
-### 4.2 方案 B: 桥接法 (Wrap OpenClaw / Claude Code)
-通过 `subprocess.Popen` 唤起外部 CLI Agent，SSE 转发其终端输出，前端使用 `xterm.js` 渲染。
+**Server Project Path**: `/root/gubei_dev/AutomatedAILabor`
 
-**当前策略**: 先完成方案 A 的基础能力，如果效果不足再引入方案 B。
+### Local Development → Server Sync Workflow
 
----
+```bash
+# 1. Connect to server
+ssh server-4c8g
 
-## 5. 自动化测试用例 (Test Cases)
+# 2. Navigate to project
+cd /root/gubei_dev/AutomatedAILabor
 
-### 5.1 监督智能体测试
+# 3. Pull latest changes from git
+git pull
 
-| # | 测试场景 | 输入 | 预期行为 |
-|---|---------|------|---------|
-| T1 | 模糊需求澄清 | "帮我做个网站" | 监督智能体追问: 什么类型? 目标受众? |
-| T2 | 明确需求直通 | "用 ECharts 做一个2024年Q1-Q4的销售折线图，数据: [100,200,150,300]" | 跳过澄清，直接生成 TaskSpec |
-| T3 | 超时自动评审 | 执行完成后用户 10s 无反馈 | 监督智能体自动评审结果质量 |
+# 4. Restart services (if needed)
+# Backend: check if running with pm2/screen/systemd
+# Frontend: rebuild if static build
+```
 
-### 5.2 执行智能体测试
+### Git Workflow
 
-| # | 测试场景 | 输入 | 预期交付物 |
-|---|---------|------|-----------|
-| T4 | Web 页面生成 | "做一个深色主题的个人简历页面" | 可预览的 HTML 页面 (非源代码) |
-| T5 | 数据可视化 | "分析以下销售数据并生成图表: ..." | 嵌入式 ECharts 图表 |
-| T6 | 研究报告 | "2024年全球AI行业趋势分析" | 格式化 Markdown 报告 |
+```bash
+# Local development - commit and push
+git add .
+git commit -m "your commit message"
+git push
 
-### 5.3 端到端闭环测试
+# On server - pull and restart
+ssh server-4c8g "cd /root/gubei_dev/AutomatedAILabor && git pull"
+```
 
-| # | 测试场景 | 流程 | 预期 |
-|---|---------|------|------|
-| T7 | 全自动交付 | 用户提交明确需求 → 不干预 | 系统自主完成3轮: 执行→评审→修正→交付 |
-| T8 | 人工介入 | 用户在评审阶段给出修改意见 | 系统按意见修正并重新交付 |
-| T9 | 多轮修正收敛 | 故意给出需迭代的需求 | 最多3轮后收敛交付 |
+### Server Environment Setup
 
----
+Server uses the same `.env` structure as local. Ensure these files exist on server:
+- `/root/gubei_dev/AutomatedAILabor/backend/.env`
+- `/root/gubei_dev/AutomatedAILabor/frontend/.env.local` (if building static)
 
-## 6. 实施路线 (Implementation Roadmap)
+## Architecture Overview
 
-### Phase 3.1: 流式管道 (当前进行中)
-- [x] 后端 SSE 端点 (`/api/jobs/{id}/stream`)
-- [x] LangGraph `StateGraph` 编译
-- [x] `generate_node` 切换到 LangChain ChatOpenAI
-- [x] 前端流式解析 + 打字机效果
+### Multi-Agent Workflow (LangGraph)
 
-### Phase 3.2: 监督智能体
-- [ ] `supervisor_clarify_node`: 需求澄清逻辑
-- [ ] `supervisor_review_node`: 自动评审逻辑
-- [ ] 10s 超时自动评审机制
-- [ ] 前端 SupervisorBubble 组件
+The core AI logic is in `backend/agent/`:
 
-### Phase 3.3: 交付物引擎
-- [ ] HTML 预览 (iframe sandbox)
-- [ ] 图表渲染 (ECharts 集成)
-- [ ] PDF 导出 (WeasyPrint)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LangGraph StateGraph                          │
+│                                                                  │
+│  supervisor_clarify → human_interaction → executor →            │
+│                       local_execution → supervisor_review       │
+│                                              │                   │
+│                    ┌─────────────────────────┘                   │
+│                    ↓                                             │
+│              (revision_needed) → executor (loop)                 │
+│                    │                                             │
+│              (approved) → END                                    │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-### Phase 3.4: 代码执行沙箱
-- [ ] Docker sandbox 集成
-- [ ] `bash_execute` / `read_file` / `write_file` 工具
-- [ ] 终端输出流式转发
+**Key Files**:
+- `backend/agent/workflow.py` - Graph definition and routing logic
+- `backend/agent/state.py` - `AgentState` TypedDict defining all state fields
+- `backend/agent/nodes/supervisor_node.py` - Clarification and review logic
+- `backend/agent/nodes/generate.py` - Async report generation with token streaming
+- `backend/agent/nodes/code_node.py` - Code generation tasks
+- `backend/agent/nodes/local_execution_node.py` - Code execution in local environment
 
----
+### Backend Structure (FastAPI)
 
-*Architecture documented on 2026-02-25. Version: v2.0-draft*
+```
+backend/
+├── main.py                 # FastAPI app, endpoints, SSE streaming
+├── models.py               # SQLAlchemy models (Job, User)
+├── database.py             # SQLite connection and session management
+├── auth.py                 # JWT authentication utilities
+└── agent/
+    ├── workflow.py         # LangGraph compilation
+    ├── state.py            # AgentState type definition
+    └── nodes/              # Individual agent node implementations
+```
+
+**Key Endpoints**:
+- `POST /api/jobs` - Create a new job (returns job_id)
+- `GET /api/jobs/{id}/stream` - SSE endpoint for streaming execution
+- `POST /api/jobs/{id}/continue` - Resume interrupted graph with user feedback
+- `GET /api/jobs/{id}` - Get job status and result
+- `GET /api/stats` - Usage analytics
+
+**Streaming Architecture**: The `/stream` endpoint uses `agent_graph.astream_events()` to intercept real-time events from LangGraph and forward them as SSE events (`token`, `phase`, `workbench_update`, `interrupt`, `end`).
+
+### Frontend Structure (Next.js App Router)
+
+```
+frontend/
+├── app/
+│   ├── layout.tsx          # Root layout with Geist font, AppShell
+│   ├── globals.css         # Tailwind v4 + custom Mesh Gradient styles
+│   ├── page.tsx            # Landing page
+│   ├── dashboard/
+│   │   ├── page.tsx        # Main dashboard (create jobs)
+│   │   ├── [id]/page.tsx   # Job detail with streaming output
+│   │   ├── analytics/page.tsx  # Token usage charts
+│   │   └── models/page.tsx # Model selection UI
+│   ├── login/page.tsx      # JWT login
+│   └── signup/page.tsx     # User registration
+├── components/
+│   ├── AppShell.tsx        # Layout shell with navigation
+│   └── ui/                 # shadcn-style UI components
+├── lib/
+│   ├── api.ts              # API client functions
+│   ├── useAgentStream.ts   # SSE streaming hook
+│   └── utils.ts            # cn() utility
+└── context/
+    └── (AuthContext if needed)
+```
+
+**Key Frontend Patterns**:
+- **Streaming**: `useAgentStream.ts` manages SSE connection, token accumulation, and phase transitions
+- **Glassmorphism UI**: Uses `backdrop-blur`, `bg-white/5`, and Mesh Gradient backgrounds
+- **Authentication**: JWT stored in memory, login at `/login`
+
+### Database Schema (SQLite)
+
+**Job** table:
+- `id` (UUID), `type` (research|code), `goal` (text), `status` (queued|processing|completed|failed|awaiting_input)
+- `result` (JSON string), `owner_id` (FK to User)
+- `input_tokens`, `output_tokens`, `cost` (metrics)
+- `model` (selected model ID)
+
+**User** table:
+- `id`, `email`, `hashed_password`, `created_at`
+
+### Agent State Flow
+
+The `AgentState` (defined in `backend/agent/state.py`) flows through the graph:
+
+1. **Input Phase**: `input` (user goal), `task_type`, `model`
+2. **Clarification Phase**: `phase='clarify'`, `task_spec` (structured requirements)
+3. **Execution Phase**: `phase='execute'`, `report`, `code_blocks`, `file_structure`
+4. **Review Phase**: `phase='review'`, `review_feedback`, `review_approved`
+5. **Loop or End**: If not approved, increment `revision_number` and loop back to executor
+
+### Common Development Tasks
+
+**Adding a New Agent Node**:
+1. Create file in `backend/agent/nodes/`
+2. Define async function accepting `(state: AgentState, config: RunnableConfig)`
+3. Add to `backend/agent/workflow.py` graph
+4. Update `AgentState` in `backend/agent/state.py` if new fields needed
+
+**Adding a New API Endpoint**:
+1. Add to `backend/main.py` with proper type hints
+2. Use `SessionLocal()` for DB access in background/streaming contexts
+3. Handle CORS preflight if needed
+
+**Adding a Frontend Page**:
+1. Create `app/newpage/page.tsx`
+2. Add navigation link in `components/AppShell.tsx`
+3. Use `useAgentStream.ts` pattern for streaming interactions
+
+### Troubleshooting
+
+**502 Bad Gateway / Connection Error**: Ensure `NO_PROXY=localhost,127.0.0.1` is set in `.env`
+
+**Architecture Mismatch (arm64 vs x86_64)**: Always use the project venv: `./venv/bin/python3 main.py`
+
+**Failed to Fetch (Frontend)**: Check backend is running on `:8000` and `NEXT_PUBLIC_API_URL` is set correctly
+
+**Module Import Errors**: The backend adds its own directory to `sys.path` in `main.py` to handle imports
