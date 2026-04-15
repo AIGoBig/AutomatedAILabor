@@ -1,32 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Zap, CheckCircle, Activity, Car, Microscope, BarChart3 } from 'lucide-react';
 
 export default function FeatureGrid() {
-    const [agentCount, setAgentCount] = useState(0);
-    const [taskCount] = useState(847);
-
-    useEffect(() => {
-        const target = 24;
-        const duration = 1500;
-        const steps = 30;
-        const increment = target / steps;
-        let current = 0;
-
-        const timer = setInterval(() => {
-            current += increment;
-            if (current >= target) {
-                setAgentCount(target);
-                clearInterval(timer);
-            } else {
-                setAgentCount(Math.floor(current));
-            }
-        }, duration / steps);
-
-        return () => clearInterval(timer);
-    }, []);
-
     return (
         <section id="features" className="py-24 px-6 relative z-10">
             <div className="max-w-7xl mx-auto">
@@ -44,9 +20,7 @@ export default function FeatureGrid() {
 
                     {/* Cell A: Main Value Prop (Large - spans 2 cols) */}
                     <div className="md:col-span-2 rounded-3xl bg-neutral-900/50 border border-white/5 p-8 relative overflow-hidden group hover:border-white/10 transition-colors bg-noise">
-                        {/* Animated top border gradient */}
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-500 opacity-50"></div>
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         <div className="relative z-10 h-full flex flex-col justify-between">
                             <div>
                                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-6 text-emerald-400">
@@ -56,46 +30,46 @@ export default function FeatureGrid() {
                                 <p className="text-neutral-400 leading-relaxed">我们的 AI 能将复杂目标分解为子任务并自动执行。不仅是聊天机器人，更是你的专属团队。</p>
                             </div>
 
-                            {/* Visual Mockup - Updated for automotive context */}
-                            <div className="mt-8 rounded-xl bg-neutral-950 border border-white/5 p-4 shadow-2xl translate-y-4 group-hover:translate-y-2 transition-transform duration-500">
+                            {/* Visual Mockup */}
+                            <div className="mt-8 rounded-xl bg-neutral-950 border border-white/5 p-4 shadow-2xl">
                                 <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
                                     <div className="text-xs text-neutral-500">任务：自动驾驶研究</div>
                                     <div className="text-xs text-emerald-500 font-mono">状态：已验证</div>
                                 </div>
                                 <div className="space-y-2">
-                                    <div className="h-2 w-3/4 bg-neutral-800 rounded animate-pulse"></div>
-                                    <div className="h-2 w-1/2 bg-neutral-800 rounded animate-pulse"></div>
-                                    <div className="h-2 w-5/6 bg-neutral-800 rounded animate-pulse animation-delay-200"></div>
+                                    <div className="h-2 w-3/4 bg-neutral-800 rounded"></div>
+                                    <div className="h-2 w-1/2 bg-neutral-800 rounded"></div>
+                                    <div className="h-2 w-5/6 bg-neutral-800 rounded"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Cell B: Live Agent Counter (NEW) */}
-                    <div className="rounded-3xl bg-neutral-900/50 border border-white/5 p-6 relative overflow-hidden group hover:border-white/10 transition-colors bg-noise">
-                        <div className="absolute inset-0 shadow-[inset_0_0_60px_rgba(16,185,129,0.05)]"></div>
-                        <div className="relative z-10 h-full flex flex-col justify-between">
+                    {/* Cell B: Live Agent Counter */}
+                    <div className="rounded-3xl bg-neutral-900/50 border border-white/5 p-6 relative overflow-hidden hover:border-white/10 transition-colors bg-noise">
+                        <div className="h-full flex flex-col justify-between">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                                     <Activity className="w-5 h-5" />
                                 </div>
-                                <div className="flex gap-1">
-                                    <div className="w-1.5 h-4 bg-emerald-500/40 rounded-full animate-pulse"></div>
-                                    <div className="w-1.5 h-6 bg-emerald-500/60 rounded-full animate-pulse animation-delay-150"></div>
-                                    <div className="w-1.5 h-3 bg-emerald-500/80 rounded-full animate-pulse animation-delay-300"></div>
+                                {/* Simple static signal bars */}
+                                <div className="flex items-end gap-1">
+                                    <div className="w-1.5 h-4 bg-emerald-500/60 rounded-full"></div>
+                                    <div className="w-1.5 h-6 bg-emerald-500/80 rounded-full"></div>
+                                    <div className="w-1.5 h-3 bg-emerald-500 rounded-full"></div>
                                 </div>
                             </div>
 
                             <div className="text-center py-4">
                                 <div className="text-5xl font-black text-emerald-400 tracking-tighter mb-2">
-                                    {agentCount}
+                                    24
                                 </div>
                                 <div className="text-sm font-bold text-neutral-400">个 Agent 正在运行</div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
                                 <div className="text-center">
-                                    <div className="text-xl font-black text-white">{taskCount}</div>
+                                    <div className="text-xl font-black text-white">847</div>
                                     <div className="text-[10px] text-neutral-500 uppercase tracking-wider">本月完成任务</div>
                                 </div>
                                 <div className="text-center">
@@ -108,25 +82,23 @@ export default function FeatureGrid() {
 
                     {/* Cell C: Speed */}
                     <div className="rounded-3xl bg-neutral-900/50 border border-white/5 p-6 relative overflow-hidden group hover:border-white/10 transition-colors bg-noise">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-cyan-500/20 transition-all duration-500"></div>
                         <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center mb-4 text-cyan-400">
                             <Zap className="w-5 h-5" />
                         </div>
                         <h3 className="text-xl font-bold text-white mb-2">瞬间扩展</h3>
                         <p className="text-sm text-neutral-500 mb-4">同时启动 1000 个研究代理。人工作坊需要几周的工作，我们只需几分钟。</p>
-                        {/* Mini agent badges */}
+                        {/* Static mini badges */}
                         <div className="flex -space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/30 animate-pulse"></div>
-                            <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 animate-pulse animation-delay-150"></div>
-                            <div className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/30 animate-pulse animation-delay-300"></div>
+                            <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/30"></div>
+                            <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30"></div>
+                            <div className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/30"></div>
                             <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[8px] text-neutral-400">+997</div>
                         </div>
                     </div>
 
-                    {/* Cell D: Automotive AI Use Cases (NEW) */}
+                    {/* Cell D: Automotive AI Use Cases */}
                     <div className="rounded-3xl bg-neutral-900/50 border border-white/5 p-6 relative overflow-hidden group hover:border-white/10 transition-colors bg-noise">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 flex items-center justify-center mb-4 text-cyan-400">
+                        <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center mb-4 text-cyan-400">
                             <Car className="w-5 h-5" />
                         </div>
                         <h3 className="text-xl font-bold text-white mb-2">垂直行业 AI</h3>
@@ -163,38 +135,19 @@ export default function FeatureGrid() {
                         </div>
                     </div>
 
-                    {/* Cell F: Tech Stack Logos Row (NEW - Full Width) */}
+                    {/* Cell F: Tech Stack Logos Row */}
                     <div className="md:col-span-3 h-20 rounded-2xl bg-neutral-900/30 border border-white/5 flex flex-col items-center justify-center gap-2 px-6">
                         <span className="text-[10px] uppercase tracking-widest text-neutral-600">Powered by</span>
-                        <div className="flex items-center justify-center gap-3 md:gap-6 opacity-60 hover:opacity-100 transition-opacity duration-500">
-                            {[
-                                { name: 'LangGraph', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-                                { name: 'Gemini', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-                                { name: 'Claude', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-                                { name: 'GPT-4o', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
-                                { name: 'FastAPI', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-                                { name: 'LangChain', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-                            ].map((tech) => (
-                                <span
-                                    key={tech.name}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-black border ${tech.color} hidden sm:inline-block`}
-                                >
-                                    {tech.name}
-                                </span>
-                            ))}
-                            {/* Mobile: Show fewer */}
-                            {[
-                                { name: 'LangGraph', color: 'bg-emerald-500/20 text-emerald-400' },
-                                { name: 'Claude', color: 'bg-purple-500/20 text-purple-400' },
-                                { name: 'FastAPI', color: 'bg-orange-500/20 text-orange-400' },
-                            ].map((tech) => (
-                                <span
-                                    key={`mobile-${tech.name}`}
-                                    className={`px-2 py-1 rounded text-[10px] font-bold ${tech.color} sm:hidden`}
-                                >
-                                    {tech.name}
-                                </span>
-                            ))}
+                        <div className="flex items-center justify-center gap-3 md:gap-6 opacity-60">
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-black border bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hidden sm:inline-block">LangGraph</span>
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-black border bg-blue-500/20 text-blue-400 border-blue-500/30 hidden sm:inline-block">Gemini</span>
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-black border bg-purple-500/20 text-purple-400 border-purple-500/30 hidden sm:inline-block">Claude</span>
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-black border bg-teal-500/20 text-teal-400 border-teal-500/30 hidden sm:inline-block">GPT-4o</span>
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-black border bg-orange-500/20 text-orange-400 border-orange-500/30 hidden sm:inline-block">FastAPI</span>
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-black border bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hidden sm:inline-block">LangChain</span>
+                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 sm:hidden">LangGraph</span>
+                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-purple-500/20 text-purple-400 sm:hidden">Claude</span>
+                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 sm:hidden">FastAPI</span>
                         </div>
                     </div>
 
