@@ -449,11 +449,12 @@ def continue_job(job_id: str, req: ContinueRequestModel, db: Session = Depends(g
     return {"status": "success", "message": "Graph resumed"}
 
 @app.get("/api/jobs")
-def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """
-    List all jobs for the authenticated user.
-    """
-    jobs = db.query(Job).filter(Job.owner_id == current_user.id).order_by(Job.created_at.desc()).all()
+def list_jobs(db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user_optional)):
+    """List all jobs. If authenticated, return only user's jobs; otherwise return all."""
+    query = db.query(Job)
+    if current_user:
+        query = query.filter(Job.owner_id == current_user.id)
+    jobs = query.order_by(Job.created_at.desc()).all()
     return [
         {
             "job_id": job.id,
@@ -461,7 +462,7 @@ def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_cu
             "goal": job.goal,
             "status": job.status,
             "created_at": job.created_at
-        } 
+        }
         for job in jobs
     ]
     
@@ -496,8 +497,11 @@ def cancel_job(job_id: str, db: Session = Depends(get_db), current_user: User = 
     return {"status": "success", "message": "Job cancelled"}
 
 @app.get("/api/users/me")
-def read_users_me(current_user: User = Depends(get_current_user)):
-    return {"id": current_user.id, "email": current_user.email}
+def read_users_me(current_user: Optional[User] = Depends(get_current_user_optional)):
+    """Return user info if authenticated, or anonymous session if not."""
+    if current_user:
+        return {"id": current_user.id, "email": current_user.email}
+    return {"id": "anonymous", "email": "user@labor.ecodeai.com"}
 
 @app.get("/api/models")
 def list_available_models():
