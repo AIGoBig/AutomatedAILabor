@@ -22,12 +22,7 @@ export default function DashboardIndex() {
     const [user, setUser] = useState<{ email: string } | null>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            router.push('/login');
-            return;
-        }
-
+        const token = localStorage.getItem('token') || '';
         fetchJobs(token);
     }, [router]);
 
