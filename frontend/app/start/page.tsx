@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
     Search, CheckCircle, Code2, Cpu, Zap, Activity, ArrowRight, Workflow, Box, PlusCircle,
-    Navigation, Server, GitBranch, Lightbulb, Terminal, ClipboardList, Sparkles, Key, Settings
+    Navigation, Server, GitBranch, Lightbulb, Terminal, ClipboardList, Sparkles, Key, Settings, Check
 } from 'lucide-react';
 import { apiPost } from '@/lib/api';
 
