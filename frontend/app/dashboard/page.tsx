@@ -22,8 +22,11 @@ export default function DashboardIndex() {
     const [user, setUser] = useState<{ email: string } | null>(null);
 
     useEffect(() => {
-        // Demo mode: skip auth check for competition
-        const token = localStorage.getItem('token') || 'demo-session';
+        const token = localStorage.getItem('token');
+        if (!token) {
+            router.push('/login');
+            return;
+        }
 
         fetchJobs(token);
     }, [router]);

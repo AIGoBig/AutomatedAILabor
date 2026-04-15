@@ -506,6 +506,17 @@ export default function StartPage() {
                     {step === 2 && (
                         <div className="space-y-8 animate-in slide-in-from-right-4 fade-in duration-500">
                             <h2 className="text-2xl font-black text-white tracking-tight text-center">选择 AI 指挥官</h2>
+
+                            {/* Default model hint */}
+                            <div className="max-w-xl mx-auto px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                                <p className="text-sm text-emerald-400">
+                                    默认使用 <span className="font-bold">GLM-5</span> 模型，已自动填入 API Key
+                                </p>
+                                <p className="text-xs text-neutral-500 mt-1">
+                                    如需更强推理能力，可前往 <a href="/dashboard/api-admin" className="text-cyan-400 underline">API 管理</a> 获取其他模型 Key
+                                </p>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {models.map((model) => (
                                     <button
