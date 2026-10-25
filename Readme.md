@@ -1,110 +1,99 @@
-# Automated AI Labor Project (Project Zero-Labor)
+# Automated AI Labor
 
-> **Mission:** Transform AI from a "Tool" to a "Workforce".
-> **Core Philosophy:** Pay for Results, Not Process.
+> **Transform AI from a "Tool" into a "Workforce" — pay for results, not process.**
+> 把 AI 从「工具」升级为「员工」——只为结果付费，不为过程付费。
 
-## 1. 核心理念 (Core Concepts)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 
-### The "Result-First" Paradigm
-传统的 SaaS (Software as a Service) 模式让用户租赁工具，用户需要自己学习使用工具并为过程付费。
-**Automated AI Labor** (AAL) 采用 **RaaS (Result as a Service)** 模式：
-1.  **结果导向 (Outcome Oriented):** 用户定义“目标” (Goal)，我们交付“成果” (Asset)。
-2.  **零风险承诺 (Zero Risk):** 只有当AI交付了符合标准的成果时，用户才付费。失败由平台承担。
-3.  **最后一公里 (The Last Mile):** 这里的 AI 不仅仅是 Chatbot，而是 Agentic Workflow。它拥有执行能力，能够调用工具、浏览网页、编写代码、生成文件。
+**Automated AI Labor (AAL)** is an open-source platform exploring a **Result-as-a-Service (RaaS)** model: instead of renting a chat tool, a user describes a goal and autonomous multi-agent workflows deliver a finished outcome — and the user pays only when the result meets the bar.
 
-## 2. 产品规划 (Product Design)
+## Highlights
 
-### MVP Focus: "The Deep Research Analyst"
-初期聚焦于高价值、可验证的“知识劳动”。
--   **Input:** 用户输入研究主题、目标受众、格式要求。
--   **Process:** AI 分解任务 -> 搜索 -> 阅读 -> 汇总 -> 撰写 -> 自我审查。
--   **Output:** 一份深度、结构化、包含引用来源的行业研究报告 (PDF/Markdown)。
+- **Multi-agent orchestration** — a *Supervisor* agent plans and reviews while *Executor* agents (research, code generation, local execution) do the work, built on LangGraph.
+- **Result-first workflow** — structured `TaskSpec` → execution → quality review → acceptance or rework loop.
+- **Streaming dashboard** — a Next.js UI with Server-Sent Events (SSE) live progress, token-usage tracking, retry/cancel, and analytics.
+- **Full-stack** — TypeScript / Next.js frontend + Python / FastAPI backend.
 
-### Future Capabilities
--   **Automated Coder:** "Fix this GitHub Issue" -> Pull Request.
--   **Content Marketer:** "Write a week's worth of LinkedIn posts based on this news" -> Scheduled Drafts.
+## Architecture
 
-## 3. 技术架构 (Technical Architecture)
+```mermaid
+flowchart TB
+    User([User]) -->|goal| UI[Next.js Dashboard]
+    UI <-->|SSE| API[FastAPI Backend]
+    API --> Sup[Supervisor Agent]
+    Sup --> Res[Research Node]
+    Sup --> Code[Code-Generation Node]
+    Sup --> Exec[Local-Execution Node]
+    Res & Code & Exec --> Sup
+    Sup -->|accept / rework| UI
+    API --> DB[(SQLite / Database)]
+```
 
-### Stack Strategy
--   **Frontend:** Next.js (React) + TailwindCSS (Vercel deployment).
-    -   *Why:* Fast, SEO-optimized, great UI libraries for dashboards.
--   **Backend:** Python (FastAPI).
-    -   *Why:* Native ecosystem for AI/LLM orchestration (LangChain, LangGraph).
--   **AI Orchestration:**
-    -   **LangGraph:** 用于构建有状态的、循环的 Agent 工作流 (Stateful workflows with cycles).
-    -   **Supervisor Pattern:** 一个“工头”Agent管理多个“工人”Agent (Researcher, Writer, Reviewer).
+## Tech Stack
 
-## 4. 市场与增长 (Marketing & GTM)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16 (React 19), TailwindCSS, TypeScript |
+| Backend | Python, FastAPI, Uvicorn |
+| AI Orchestration | LangChain, LangGraph (stateful, cyclic agent workflows) |
+| Streaming | SSE (`sse-starlette`) |
+| Auth | JWT (`python-jose`), bcrypt (`passlib`) |
+| Search | DuckDuckGo Search (`langchain-community`) |
 
-### Go-To-Market Strategy
-1.  **"Proof of Work" Campaign:** 公开展示 AI 生成的高质量报告，对比人类专家的工作。
-2.  **Risk-Reversal Offer:** "Satisfied or Free" (满意再付费)。这是打破信任壁垒的关键。
-3.  **Viral Loop:** 分享生成的报告（带水印/链接）以解锁更多配额或折扣。
+## Project Structure
 
-## 5. Roadmap
-- [x] **Phase 1: Foundation** - Define architecture, set up repo, build basic "Research Agent".
-- [x] **Phase 2: MVP Launch (v1.1)** - Premium Web interface, Results-as-a-Service dashboard.
-- [ ] **Phase 3: Intelligence & Effects** - Optimize model interaction, add more agent workers, streaming updates.
+```text
+AutomatedAILabor/
+├── frontend/              # Next.js (React + TailwindCSS)
+│   ├── app/               # dashboard, login, start pages
+│   ├── components/        # UI components
+│   └── lib/               # API client, SSE streaming
+├── backend/               # FastAPI
+│   ├── agent/             # LangGraph nodes & workflow
+│   ├── main.py            # API entrypoint
+│   ├── auth.py            # JWT auth
+│   ├── models.py          # SQLAlchemy models
+│   └── requirements.txt
+├── docs/                  # product, technical, design docs
+└── docker-compose.yml
+```
 
-## 6. Changelog
+## Quick Start
 
-### v1.1.0 (2025-02-15) - "Aesthetic & UX Polish"
-- **极客美学 (Geek Aesthetics):** 
-  - 引入 Apple 风格的流动 Mesh Gradient 背景。
-  - 全站深度适配 Glassmorphism（毛玻璃）视觉效果。
-  - 优化全局色彩对比度与可读性。
-- **性能与体验 (Performance & UX):**
-  - **智能轮询:** 详情页任务结束后自动停止 API 请求，节省资源。
-  - **移动端适配:** 增加响应式侧边栏（Hamburger Menu）。
-  - **交互增强:** 增加任务重试、取消功能。
-  - **可视化:** 统计页集成 7 天 Token 消耗趋势图。
-- **架构:**
-  - 统一前端 API 调用层，增加健壮的错误处理。
+### Backend
 
----
-## 6. 常见问题排查 (Troubleshooting)
+```bash
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env       # fill in your API keys
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-### 1. 502 Bad Gateway / Connection Error
-如果出现 `openai.InternalServerError: Error code: 502`，通常是因为终端的全局代理（如 VPN, Conda 代理）拦截了本地流量。
-- **解决方法**: 在 `.env` 文件中确保包含 `NO_PROXY=localhost,127.0.0.1`。
-- **手动修复**: 在终端运行 `export NO_PROXY=localhost,127.0.0.1`。
+### Frontend
 
-### 2. Architecture Mismatch (arm64 vs x86_64)
-如果遇到 `ImportError: ... incompatible architecture`，说明你的 Python 解释器与安装的二进制库不匹配。
-- **解决方法**: 始终使用项目自带的虚拟环境运行脚本：
-  ```bash
-  cd backend
-  ./venv/bin/python3 main.py
-  ```
+```bash
+cd frontend
+npm install
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+```
 
-### 3. Failed to Fetch (Frontend)
-如果前端报错 `Failed to fetch`，请检查：
-- 后端是否已启动 (`localhost:8000`)。
-- `frontend/.env.local` 中的 `NEXT_PUBLIC_API_URL` 是否设置为 `http://localhost:8000`。
-- 浏览器控制台是否有 CORS 相关报错。
+## Roadmap
 
----
-*Initiated by the Automated AI Labor Team.*
+- [x] Multi-agent supervisor/executor architecture
+- [x] v1.1 web interface with streaming dashboard & token analytics
+- [ ] More agent workers & deeper model-interaction optimization
+- [ ] Automated Coder — "fix this GitHub issue" → Pull Request
+- [ ] Content Marketer — draft a week of posts from a single brief
 
+## Screenshots
 
-## AI员工
+Run the project locally and drop captured UI images into `docs/screenshots/`, then reference them here.
 
-### 全能专家助手
-你作为一个专业的全能专家助手，是一个AI专家、技术专家、产品专家、市场营销专家，需要针 AI Labor Project ，进行构建和持续迭代优化。首先请参考@beautifulMention中的一点想法，开始进行多轮完善补充，构建从介绍页设计、产品设计、代码架构设计、代码构建，到产品、到市场营销的完整规划，实现最终将产品走向市场并盈利。
+## License
 
-
-
-
-------
-
-# 我的一些想法（不要删！！）
-
-1. 表达一个创新的主题：在网站上雇一个AI Labor，来端到端的帮你闭环的完成任务，并只需要在无问题交付后，支付token费用
-2. 能够 实现多 agent 协同工作
-3. 能够有 agent pixel 的 可视化的方式，展示agent状态和工作流程。（待加入参考的开源项目）
-4. 待想办法把我的claw接入进来
-5. 待合并现有的几个说明，到标准、通用的md文件里
-
-
-
+[MIT](LICENSE) © AIGoBig
